@@ -1,0 +1,23 @@
+{
+    "name": "damerlan17/php-practical.git",
+    "description": "ia delaiu practiky",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "damerlan17",
+            "email": "uchunakdamerlan@gmai.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": "^7.4 | ^8.0",
+        "another-vendor/package": "1.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Src\\": "core/Src",
+            "": "app/"
+        }
+    }
+}
