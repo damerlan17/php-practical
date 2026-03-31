@@ -1,19 +1,19 @@
 <?php return array(
     'root' => array(
-        'name' => 'damerlan17/php-practical.git',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => null,
+        'name' => 'gr441_uaeer/php-practical',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '723db8f680b14e548ba316818218987a8f7a9480',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'damerlan17/php-practical.git' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => null,
+        'gr441_uaeer/php-practical' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '723db8f680b14e548ba316818218987a8f7a9480',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

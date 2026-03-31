@@ -1,24 +1,22 @@
 {
-  "name": "damerlan17/php-practical",
-  "description": "ia delaiu practiky",
-  "type": "project",
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "gr441_uaeer",
-      "email": "uchunakdamerlan@gmai.com"
+    "name": "gr441_uaeer/php-practical",
+    "description": "practika",
+    "type": "project",
+    "license": "mit",
+    "authors": [
+        {
+            "name": "Dameran",
+            "email": "Uchunakdamerlan@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": "^7.4 | ^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Src\\": "core/Src/",
+            "": "app/"
+        }
     }
-  ],
-  "minimum-stability": "dev",
-  "require": {
-    "php": "^7.4 | ^8.0"
-
-  },
-  "autoload": {
-    "psr-4": {
-      "Src\\": "core/Src",
-      "App\\": "app/"
-    }
-  }
 }
-
