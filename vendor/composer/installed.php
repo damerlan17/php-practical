@@ -1,19 +1,19 @@
 <?php return array(
     'root' => array(
-        'name' => 'gr441_uaeer/php-practical',
+        'name' => 'damerlan17/php-practical',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '723db8f680b14e548ba316818218987a8f7a9480',
+        'reference' => '9deed00b917183f23bb06f4d649304c66fd16772',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        'gr441_uaeer/php-practical' => array(
+        'damerlan17/php-practical' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '723db8f680b14e548ba316818218987a8f7a9480',
+            'reference' => '9deed00b917183f23bb06f4d649304c66fd16772',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

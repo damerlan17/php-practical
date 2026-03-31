@@ -1,12 +1,12 @@
 {
-    "name": "gr441_uaeer/php-practical",
-    "description": "practika",
+    "name": "damerlan17/php-practical",
+    "description": "qwer",
     "type": "project",
-    "license": "mit",
+    "license": "MIT",
     "authors": [
         {
-            "name": "Dameran",
-            "email": "Uchunakdamerlan@gmail.com"
+            "name": "damerlan17",
+            "email": "uchunakdamerlan@gmail.com"
         }
     ],
     "minimum-stability": "dev",
