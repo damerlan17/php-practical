@@ -2,7 +2,7 @@
 return [
     //Класс аутентификации
     'auth' => \Src\Auth\Auth::class,
-    //Клас пользователя
+    //Класс пользователя
     'identity' => \Model\User::class,
     //Классы для middleware
     'routeMiddleware' => [
