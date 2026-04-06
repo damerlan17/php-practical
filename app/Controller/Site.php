@@ -43,7 +43,6 @@ class Site
         Auth::logout();
         app()->route->redirect('/hello');
     }
-
     public function hello(): string
     {
         return new View('site.hello', ['message' => 'hello working']);
