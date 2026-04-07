@@ -4,5 +4,9 @@
     <label>Имя <input type="text" name="name"></label>
     <label>Логин <input type="text" name="login"></label>
     <label>Пароль <input type="password" name="password"></label>
+    <label>Фамилия <input type="text" name="last_name"></label>
+    <label>Отчество <input type="text" name="surname"></label>
     <button>Зарегистрироваться</button>
+
+
 </form>
