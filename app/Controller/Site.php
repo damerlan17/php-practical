@@ -45,7 +45,16 @@ class Site
     }
     public function hello(): string
     {
-        return new View('site.hello', ['message' => 'hello working']);
+        $user = app()->auth::user();
+        return new View('site.hello', ['user' => $user]);
     }
+
+    // в файле Controller/Site.php
+    public function edit(Request $request) {
+        // показать форму редактирования документов
+        $user = app()->auth::user();
+        return new View('site.edit', ['user' => $user]);
+    }
+
 
 }
