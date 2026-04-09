@@ -25,8 +25,7 @@ class Site
         $user = app()->auth::user();
         if (!$user) return redirect('/login');
 
-        // Проверка роли
-        if ($user->role->role_name !== 'admin') {
+        if (!isset($user->role) || $user->role->role_name !== 'admin') {
             die('У вас нет прав для редактирования документов');
         }
 
