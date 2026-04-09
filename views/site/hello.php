@@ -5,6 +5,7 @@
     <p><strong>Имя:</strong> <?= htmlspecialchars(app()->auth::user()->first_name ?? '—') ?></p>
     <p><strong>Отчество:</strong> <?= htmlspecialchars(app()->auth::user()->surname ?? '—') ?></p>
 
+    <p>Роль: <?= htmlspecialchars($role->role_name ?? 'не назначена') ?></p>
     <h2>Ваши документы:</h2>
     <?php
     $doc = app()->auth::user()->document; // предполагается связь document()

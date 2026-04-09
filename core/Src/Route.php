@@ -68,6 +68,7 @@ class Route
     {
         Middleware::single()->add($this->currentHttpMethod, $this->currentRoute, $middlewares);
         return $this;
+
     }
 
     public function start(): void

@@ -23,6 +23,12 @@ class Site
     public function edit(Request $request)
     {
         $user = app()->auth::user();
+        if (!$user) return redirect('/login');
+
+        // Проверка роли
+        if ($user->role->role_name !== 'admin') {
+            die('У вас нет прав для редактирования документов');
+        }
 
         // Если POST — сохраняем данные
         if ($request->method === 'POST') {
@@ -30,18 +36,18 @@ class Site
             if ($document) {
                 // Обновляем существующий документ
                 $document->update([
-                    'inn'             => $request->inn,
-                    'snils'           => $request->snils,
+                    'inn' => $request->inn,
+                    'snils' => $request->snils,
                     'payment_account' => $request->payment_account,
-                    'tabel_name'      => $request->tabel_name
+                    'tabel_name' => $request->tabel_name
                 ]);
             } else {
                 // Если документа нет (на случай ошибки), создаём новый
                 $user->document()->create([
-                    'inn'             => $request->inn,
-                    'snils'           => $request->snils,
+                    'inn' => $request->inn,
+                    'snils' => $request->snils,
                     'payment_account' => $request->payment_account,
-                    'tabel_name'      => $request->tabel_name
+                    'tabel_name' => $request->tabel_name
                 ]);
             }
             // Редирект на профиль с сообщением
@@ -49,6 +55,12 @@ class Site
         }
 
         return (new View())->render('site.edit', ['user' => $user]);
+    }
+
+    public function showRole()
+    {
+        $user = app()->auth::user();
+        return new View('role.show', ['role' => $user->role]);
     }
 
     public function signup(Request $request): string
@@ -59,20 +71,21 @@ class Site
 
         // Создаём документ с данными из формы
         $doc = Document::create([
-            'inn'             => $request->inn,
-            'snils'           => $request->snils,
+            'inn' => $request->inn,
+            'snils' => $request->snils,
             'payment_account' => $request->payment_account,
-            'tabel_name'      => $request->tabel_name
+            'tabel_name' => $request->tabel_name,
         ]);
 
         // Создаём пользователя с привязкой к документу
         $user = User::create([
-            'last_name'   => $request->last_name,
-            'first_name'  => $request->first_name,
-            'surname'     => $request->surname,
-            'login'       => $request->login,
-            'password'    => $request->password,
-            'document_id' => $doc->document_id
+            'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'surname' => $request->surname,
+            'login' => $request->login,
+            'password' => $request->password,
+            'document_id' => $doc->document_id,
+            'role_id' => 2,
         ]);
 
         if ($user) {
@@ -104,6 +117,6 @@ class Site
     public function hello(): string
     {
         $user = app()->auth::user();
-        return new View('site.hello', ['user' => $user]);
+        return new View('site.hello', ['user' => $user, 'role' => $user->role]);
     }
 }

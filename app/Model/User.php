@@ -17,7 +17,8 @@ class User extends Model implements IdentityInterface
         'password',
         'last_name',
         'surname',
-        'document_id'
+        'document_id',
+        'role_id'
     ];
     protected static function booted()
     {
@@ -52,12 +53,6 @@ class User extends Model implements IdentityInterface
         return $this->belongsTo(Position::class, 'position_id', 'position_id');
     }
 
-    // Связь с ролью
-    public function role()
-    {
-        return $this->belongsTo(Role::class, 'role_id', 'role_id');
-    }
-
     // Связь с удержанием
     public function deduction()
     {
@@ -73,5 +68,10 @@ class User extends Model implements IdentityInterface
     public function payrollReports()
     {
         return $this->hasMany(PayrollReport::class, 'user_id', 'id');
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id', 'role_id');
     }
 }
