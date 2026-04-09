@@ -10,6 +10,7 @@
 <body>
 <header>
     <nav>
+
         <a href="<?= app()->route->getUrl('/hello') ?>">Главная</a>
         <?php
         if (!app()->auth::check()):
@@ -19,6 +20,7 @@
         <?php
         else:
             ?>
+            <a href="<?= app()->route->getUrl('/positions') ?>">Должности</a>
             <a href="<?= app()->route->getUrl('/logout') ?>">Выход (<?= app()->auth::user()->last_name ?>)</a>
         <?php
         endif;

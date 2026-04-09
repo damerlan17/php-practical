@@ -18,7 +18,8 @@ class User extends Model implements IdentityInterface
         'last_name',
         'surname',
         'document_id',
-        'role_id'
+        'role_id',
+        'position_id',
     ];
     protected static function booted()
     {

@@ -9,5 +9,5 @@ Route::add(['GET', 'POST'], '/login', [Controller\Site::class, 'login']);
 Route::add('GET', '/logout', [Controller\Site::class, 'logout']);
 
 Route::add(['GET', 'POST'], '/edit', [Controller\Site::class, 'edit']);
-Route::add('GET', '/admin/users', [Controller\AdminController::class, 'users'])
-    ->middleware('role:admin');
+Route::add('GET', '/admin/users', [Controller\Site::class, 'users'])->middleware('role:admin');
+Route::add(['GET', 'POST'], '/positions', [Controller\Site::class, 'positions']);
