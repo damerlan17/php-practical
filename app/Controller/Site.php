@@ -7,7 +7,12 @@ use Src\View;
 use Src\Request;
 use Model\User;
 use Src\Auth\Auth;
+
 use Model\Document;
+
+use Model\Position;
+use Model\Allowance;
+use Model\PositionAllowance;
 
 class Site
 {
@@ -20,6 +25,7 @@ class Site
         return (new View())->render('site.post', ['posts' => $posts]);
     }
 
+
     public function edit(Request $request)
     {
         $user = app()->auth::user();
@@ -29,11 +35,9 @@ class Site
             die('У вас нет прав для редактирования документов');
         }
 
-        // Если POST — сохраняем данные
         if ($request->method === 'POST') {
             $document = $user->document;
             if ($document) {
-                // Обновляем существующий документ
                 $document->update([
                     'inn' => $request->inn,
                     'snils' => $request->snils,
@@ -41,7 +45,6 @@ class Site
                     'tabel_name' => $request->tabel_name
                 ]);
             } else {
-                // Если документа нет (на случай ошибки), создаём новый
                 $user->document()->create([
                     'inn' => $request->inn,
                     'snils' => $request->snils,
@@ -49,7 +52,6 @@ class Site
                     'tabel_name' => $request->tabel_name
                 ]);
             }
-            // Редирект на профиль с сообщением
             app()->route->redirect('/edit');
         }
 
@@ -68,7 +70,6 @@ class Site
             return new View('site.signup');
         }
 
-        // Создаём документ с данными из формы
         $doc = Document::create([
             'inn' => $request->inn,
             'snils' => $request->snils,
@@ -76,7 +77,6 @@ class Site
             'tabel_name' => $request->tabel_name,
         ]);
 
-        // Создаём пользователя с привязкой к документу
         $user = User::create([
             'last_name' => $request->last_name,
             'first_name' => $request->first_name,
@@ -96,15 +96,12 @@ class Site
 
     public function login(Request $request): string
     {
-        //Если просто обращение к странице, то отобразить форму
         if ($request->method === 'GET') {
             return new View('site.login');
         }
-        //Если удалось аутентифицировать пользователя, то редирект
         if (Auth::attempt($request->all())) {
             app()->route->redirect('/hello');
         }
-        //Если аутентификация не удалась, то сообщение об ошибке
         return new View('site.login', ['message' => 'Неправильные логин или пароль']);
     }
 
@@ -113,9 +110,109 @@ class Site
         Auth::logout();
         app()->route->redirect('/hello');
     }
+
     public function hello(): string
     {
         $user = app()->auth::user();
         return new View('site.hello', ['user' => $user, 'role' => $user->role]);
+    }
+
+    public function positions(Request $request)
+    {
+        $action = $_GET['action'] ?? 'list';
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['create'])) {
+            $allowances = Allowance::all();
+            extract(['allowances' => $allowances]);
+            include __DIR__ . '/../../views/site/create_position.php';
+            exit;
+        }
+
+        // СПИСОК
+        if ($action === 'list') {
+            $positions = Position::with('positionAllowance.allowance')->get();
+            extract(['positions' => $positions]);
+            include __DIR__ . '/../../views/site/positions.php';
+            exit;
+        }
+
+// ФОРМА СОЗДАНИЯ
+        if ($action === 'create') {
+            $allowances = Allowance::all();
+            extract(['allowances' => $allowances, 'mode' => 'create']);
+            include __DIR__ . '/../../views/site/create_position.php';
+            exit;
+        }
+
+        // СОХРАНЕНИЕ
+        if ($action === 'store') {
+            $allowanceId = $_POST['allowance_id'] ?? null;
+            $posAllowance = null;
+            if ($allowanceId) {
+                $posAllowance = PositionAllowance::create(['allowance_id' => $allowanceId]);
+            }
+            Position::create([
+                'base_salary' => $_POST['base_salary'],
+                'id_allowance_position' => $posAllowance ? $posAllowance->id_allowance_position : null
+            ]);
+            header('Location: /positions');
+            exit;
+        }
+
+        // ФОРМА РЕДАКТИРОВАНИЯ
+        if ($action === 'edit') {
+            $position = Position::with('positionAllowance')->find($_GET['id']);
+            if (!$position) {
+                header('Location: /positions');
+                exit;
+            }
+            $allowances = Allowance::all();
+            extract(['position' => $position, 'allowances' => $allowances, 'mode' => 'edit']);
+            include __DIR__ . '/../../views/site/edit_position.php';
+            exit;
+        }
+
+        // ОБНОВЛЕНИЕ
+        if ($action === 'update') {
+            $position = Position::find($_POST['id']);
+            if ($position) {
+                $allowanceId = $_POST['allowance_id'] ?? null;
+                $posAllowance = $position->positionAllowance;
+                if ($allowanceId) {
+                    if ($posAllowance) {
+                        $posAllowance->update(['allowance_id' => $allowanceId]);
+                    } else {
+                        $new = PositionAllowance::create(['allowance_id' => $allowanceId]);
+                        $position->id_allowance_position = $new->id_allowance_position;
+                    }
+                } else {
+                    if ($posAllowance) {
+                        $posAllowance->delete();
+                        $position->id_allowance_position = null;
+                    }
+                }
+                $position->base_salary = $_POST['base_salary'];
+                $position->save();
+            }
+            header('Location: /positions');
+            exit;
+        }
+
+        // УДАЛЕНИЕ
+        if ($action === 'delete') {
+            $position = Position::find($_POST['id']);
+            if ($position) {
+                if ($position->positionAllowance) {
+                    $position->positionAllowance->delete();
+                }
+                $position->delete();
+            }
+            header('Location: /positions');
+            exit;
+        }
+
+        // Если action не распознан
+        header('Location: /positions');
+        exit;
     }
 }
