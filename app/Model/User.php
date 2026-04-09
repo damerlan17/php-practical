@@ -17,12 +17,8 @@ class User extends Model implements IdentityInterface
         'password',
         'last_name',
         'surname',
-        'position_id',
-        'role_id',
-        'deduction_id',
         'document_id'
     ];
-
     protected static function booted()
     {
         static::created(function ($user) {
