@@ -207,4 +207,122 @@ class Site
         // Редирект или страница успеха
         app()->route->redirect('/positions');
     }
+
+    public function users()
+    {
+        $users = User::all(); // или with('role', 'position', 'document')
+        return (new View())->render('site.users', ['users' => $users]);
+    }
+
+    // Форма создания пользователя
+    public function create_users()
+    {
+        $roles = Role::all();
+        $positions = Position::all();
+        $documents = Document::all();
+        return (new View())->render('site.create_user', [
+            'roles' => $roles,
+            'positions' => $positions,
+            'documents' => $documents
+        ]);
+    }
+
+    // Сохранение нового пользователя
+    public function storeUsers(Request $request)
+    {
+        // Валидация (простая)
+        $errors = [];
+        if (empty($request->login)) {
+            $errors['login'] = 'Логин обязателен';
+        } elseif (User::where('login', $request->login)->exists()) {
+            $errors['login'] = 'Такой логин уже используется';
+        }
+        if (empty($request->password)) {
+            $errors['password'] = 'Пароль обязателен';
+        }
+        if (empty($request->first_name)) {
+            $errors['first_name'] = 'Имя обязательно';
+        }
+
+        if (!empty($errors)) {
+            // Вернуться назад с ошибками
+            return (new View())->render('site.create_user', [
+                'errors' => $errors,
+                'old' => (array)$request,
+                'roles' => Role::all(),
+                'positions' => Position::all(),
+                'documents' => Document::all()
+            ]);
+        }
+
+        $data = $request->all();
+        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        User::create($data);
+
+        app()->route->redirect('/users');
+    }
+
+    // Форма редактирования пользователя
+    public function edit_users(Request $request)
+    {
+        $user = User::find($request->id);
+        if (!$user) {
+            app()->route->redirect('/users');
+        }
+        $roles = Role::all();
+        $positions = Position::all();
+        $documents = Document::all();
+        return (new View())->render('site.edit_user', [
+            'user' => $user,
+            'roles' => $roles,
+            'positions' => $positions,
+            'documents' => $documents
+        ]);
+    }
+
+    // Обновление пользователя
+    public function updateUsers(Request $request)
+    {
+        $user = User::find($request->id);
+        if (!$user) {
+            app()->route->redirect('/users');
+        }
+
+        $data = $request->all();
+
+        // Если пароль передан – хешируем
+        if (!empty($data['password'])) {
+            $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        } else {
+            unset($data['password']);
+        }
+
+        // Проверка уникальности логина (исключая текущего пользователя)
+        if (isset($data['login']) && User::where('login', $data['login'])->where('id', '!=', $user->id)->exists()) {
+            $errors['login'] = 'Такой логин уже используется';
+            return (new View())->render('site.edit_user', [
+                'user' => $user,
+                'errors' => $errors,
+                'roles' => Role::all(),
+                'positions' => Position::all(),
+                'documents' => Document::all()
+            ]);
+        }
+
+        $user->update($data);
+        app()->route->redirect('/users');
+    }
+
+    // Удаление пользователя
+    public function deleteUsers(Request $request)
+    {
+        $user = User::find($request->id);
+        if ($user) {
+            $user->delete();
+        }
+        app()->route->redirect('/users');
+    }
+
+
+
 }

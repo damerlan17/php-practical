@@ -1,7 +1,4 @@
-<?php
-$title = 'Список должностей';
-ob_start();
-?>
+
     <h1>Должности</h1>
     <a href="<?= app()->route->getUrl('/create_position') ?>" class="btn">+ Добавить должность</a>
     <table border="1">

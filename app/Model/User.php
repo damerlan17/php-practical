@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Src\Auth\IdentityInterface;
 
-
 class User extends Model implements IdentityInterface
 {
     use HasFactory;
@@ -20,7 +19,7 @@ class User extends Model implements IdentityInterface
         'surname',
         'document_id',
         'role_id',
-        'position_id',
+        'position_id'
     ];
     protected static function booted()
     {

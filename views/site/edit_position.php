@@ -21,6 +21,3 @@ ob_start();
         <button type="submit">Обновить</button>
         <a href="/positions">Отмена</a>
     </form>
-<?php
-$content = ob_get_clean();
-include __DIR__ . '/../layouts/main.php';

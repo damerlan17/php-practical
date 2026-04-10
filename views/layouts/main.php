@@ -21,6 +21,8 @@
         else:
             ?>
             <a href="<?= app()->route->getUrl('/positions') ?>">Должности</a>
+            <a href="<?= app()->route->getUrl('/users') ?>">Пользователи</a>
+
             <a href="<?= app()->route->getUrl('/logout') ?>">Выход (<?= app()->auth::user()->last_name ?>)</a>
         <?php
         endif;

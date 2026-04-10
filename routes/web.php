@@ -1,6 +1,7 @@
 <?php
 
 use Src\Route;
+use App\Controllers\UserController;
 
 Route::add('GET', '/hello', [Controller\Site::class, 'hello'])
     ->middleware('auth');
@@ -19,3 +20,10 @@ Route::add('POST', '/update', [Controller\Site::class, 'updatePosition']);
 Route::add('POST', '/delete', [Controller\Site::class, 'deletePosition']);
 
 Route::add('POST', '/stored', [Controller\Site::class, 'storePosition']);
+
+Route::add('GET', '/users', [Controller\Site::class, 'users']);
+Route::add('GET', '/users/create', [Controller\Site::class, 'create_users']);
+Route::add('POST', '/users/store', [Controller\Site::class, 'storeUsers']);
+Route::add('GET', '/users/edit', [Controller\Site::class, 'edit_users']);      // id через GET
+Route::add('POST', '/users/update', [Controller\Site::class, 'updateUsers']);  // id через POST
+Route::add('GET', '/users/delete', [Controller\Site::class, 'deleteUsers']);   // id через GET
