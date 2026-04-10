@@ -5,12 +5,14 @@ namespace Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+
 class Position extends Model
 {
     use HasFactory;
 
     public $timestamps = false;
     protected $table = 'positions';
+    protected $primaryKey = 'position_id';
     protected $fillable = [
         'id_allowance_position',
         'base_salary'

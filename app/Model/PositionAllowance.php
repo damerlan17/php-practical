@@ -11,6 +11,7 @@ class PositionAllowance extends Model
 
     public $timestamps = false;
     protected $table = 'position_allowances';
+    protected $primaryKey = 'id_allowance_position';
     protected $fillable = [
         'allowance_id'
     ];

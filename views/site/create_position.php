@@ -3,8 +3,9 @@ $title = 'Новая должность';
 ob_start();
 ?>
     <h1>Новая должность</h1>
-    <form action="/positions/store" method="POST">
-        <label>Оклад:</label> <input type="number" step="0.01" name="base_salary" required><br>
+    <form action="<?= app()->route->getUrl('/stored') ?>" method="POST">
+        <label>Базовый оклад:</label>
+        <input type="number" step="0.01" name="base_salary" required><br>
         <label>Надбавка:</label>
         <select name="allowance_id">
             <option value="">— без надбавки —</option>
@@ -15,6 +16,3 @@ ob_start();
         <button type="submit">Сохранить</button>
         <a href="/positions">Отмена</a>
     </form>
-<?php
-$content = ob_get_clean();
-include __DIR__ . '/../layouts/main.php';

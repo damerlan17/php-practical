@@ -9,6 +9,11 @@ use Model\User;
 use Src\Auth\Auth;
 use Model\Document;
 
+use Model\Position;
+use Model\Allowance;
+use Model\PositionAllowance;
+
+
 class Site
 {
     public function index(Request $request): string
@@ -117,5 +122,89 @@ class Site
     {
         $user = app()->auth::user();
         return new View('site.hello', ['user' => $user, 'role' => $user->role]);
+    }
+
+    public function positions()
+    {
+        $positions = Position::with('positionAllowance.allowance')->get();
+        return (new View())->render('site.positions', ['positions' => $positions]);
+    }
+
+    public function create_position()
+    {
+        $allowances = Allowance::all();
+        return (new View())->render('site.create_position', ['allowances' => $allowances]);
+    }
+
+    public function edit_position(Request $request)
+    {
+        $position = Position::with('positionAllowance')->find($request->id);
+        if (!$position) {
+            app()->route->redirect('/positions');
+        }
+        $allowances = Allowance::all();
+        return (new View())->render('site.edit_position', [   // ← исправлено
+            'position' => $position,
+            'allowances' => $allowances
+        ]);
+    }
+    public function updatePosition(Request $request)
+    {
+        $position = Position::find($request->id);
+        if ($position) {
+            $allowanceId = $request->allowance_id;
+            $posAllowance = $position->positionAllowance;
+            if ($allowanceId) {
+                if ($posAllowance) {
+                    $posAllowance->update(['allowance_id' => $allowanceId]);
+                } else {
+                    $new = PositionAllowance::create(['allowance_id' => $allowanceId]);
+                    $position->id_allowance_position = $new->id_allowance_position;
+                }
+            } else {
+                if ($posAllowance) {
+                    $posAllowance->delete();
+                    $position->id_allowance_position = null;
+                }
+            }
+            $position->base_salary = $request->base_salary;
+            $position->save();
+        }
+        app()->route->redirect('/positions');
+    }
+
+    public function deletePosition(Request $request)
+    {
+        $position = Position::find($request->id);
+        if ($position) {
+            // 1. Обнуляем position_id у всех пользователей, у которых была эта должность
+            User::where('position_id', $position->position_id)->update(['position_id' => null]);
+
+            // 2. Если у должности была связанная надбавка – обнуляем ссылку и удаляем запись в position_allowances
+            if ($position->positionAllowance) {
+                $position->id_allowance_position = null;
+                $position->save();
+                $position->positionAllowance->delete();
+            }
+
+            // 3. Удаляем саму должность
+            $position->delete();
+        }
+        app()->route->redirect('/positions');
+    }
+
+    public function storePosition(Request $request)
+    {
+        $allowanceId = $request->allowance_id;
+        $posAllowance = null;
+        if ($allowanceId) {
+            $posAllowance = PositionAllowance::create(['allowance_id' => $allowanceId]);
+        }
+        $position = Position::create([
+            'base_salary' => $request->base_salary,
+            'id_allowance_position' => $posAllowance ? $posAllowance->id_allowance_position : null
+        ]);
+        // Редирект или страница успеха
+        app()->route->redirect('/positions');
     }
 }
