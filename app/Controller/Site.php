@@ -283,12 +283,13 @@ class Site
         }
         $roles = Role::all();
         $positions = Position::all();
-        return (new View())->render('site.edit', [
+        return (new View())->render('site.edit_users', [
             'editUser' => $user,
             'roles' => $roles,
             'positions' => $positions
         ]);
     }
+
 
     // Обновление пользователя
     public function updateUsers(Request $request)
@@ -306,7 +307,7 @@ class Site
         }
 
         if (!empty($errors)) {
-            return (new View())->render('sit.edit', [
+            return (new View())->render('site.edit_users', [
                 'editUser' => $user,
                 'errors' => $errors,
                 'roles' => Role::all(),
@@ -352,11 +353,26 @@ class Site
         app()->route->redirect('/users');
     }
 
-    // Удаление пользователя
     public function deleteUsers(Request $request)
     {
+        $currentUser = app()->auth::user();
         $user = User::find($request->id);
-        if ($user) {
+
+        if ($user && $user->id !== $currentUser->id) {
+            $docId = $user->document_id;
+
+            // 1. Отвязываем документ от пользователя
+            if ($docId) {
+                $user->document_id = null;
+                $user->save();
+            }
+
+            // 2. Удаляем документ (если был)
+            if ($docId) {
+                Document::destroy($docId);
+            }
+
+            // 3. Удаляем пользователя
             $user->delete();
         }
         app()->route->redirect('/users');

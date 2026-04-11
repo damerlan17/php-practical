@@ -8,9 +8,8 @@
             <td><?= htmlspecialchars($user->login) ?></td>
             <td><?= htmlspecialchars($user->first_name) ?></td>
             <td>
-
-                <a href="<?= app()->route->getUrl('/users/edit_user') ?>?id=<?= $user->id ?>">Ред.</a>
-                <a href="<?= app()->route->getUrl('/users/deleteUsers') ?>?id=<?= $user->id ?>" onclick="return confirm('Удалить?')">Уд.</a>
+                <a href="<?= app()->route->getUrl('/users/edit_users') ?>?id=<?= $user->id ?>">Ред.</a>
+                <a href="<?= app()->route->getUrl('/users/delete') ?>?id=<?= $user->id ?>" onclick="return confirm('Удалить?')">Уд.</a>
             </td>
         </tr>
     <?php endforeach; ?>

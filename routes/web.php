@@ -22,6 +22,10 @@ Route::add('POST', '/stored', [Controller\Site::class, 'storePosition']);
 Route::add('GET', '/users', [Controller\Site::class, 'users']);
 Route::add('GET', '/users/create_users', [Controller\Site::class, 'create_users']);        // добавили слеш
 Route::add('POST', '/store', [Controller\Site::class, 'storeUsers']);
-Route::add('GET', '/edit_users', [Controller\Site::class, 'edit_users']);            // единообразно
-Route::add('POST', '/users/update', [Controller\Site::class, 'updateUsers']);
-Route::add('GET', '/users/delete', [Controller\Site::class, 'deleteUsers']);         // GET для простоты
+         // единообразно
+
+Route::add('GET', '/users/delete', [Controller\Site::class, 'deleteUsers']);      // GET для простоты
+
+
+Route::add('GET', '/users/edit_users', [Controller\Site::class, 'edit_users']);
+Route::add('POST', '/users/update_user', [Controller\Site::class, 'updateUsers']);
