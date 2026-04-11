@@ -3,6 +3,7 @@
 namespace Controller;
 
 use Model\Post;
+use Model\Role;
 use Src\View;
 use Src\Request;
 use Model\User;
@@ -29,10 +30,6 @@ class Site
     {
         $user = app()->auth::user();
         if (!$user) return redirect('/login');
-
-        if (!isset($user->role) || $user->role->role_name !== 'admin') {
-            die('У вас нет прав для редактирования документов');
-        }
 
         // Если POST — сохраняем данные
         if ($request->method === 'POST') {
@@ -210,7 +207,7 @@ class Site
 
     public function users()
     {
-        $users = User::all(); // или with('role', 'position', 'document')
+        $users = User::with('role', 'position')->get(); // загружаем связи
         return (new View())->render('site.users', ['users' => $users]);
     }
 
@@ -219,11 +216,10 @@ class Site
     {
         $roles = Role::all();
         $positions = Position::all();
-        $documents = Document::all();
+        // Документы не нужны – они создаются автоматически при сохранении
         return (new View())->render('site.create_user', [
             'roles' => $roles,
-            'positions' => $positions,
-            'documents' => $documents
+            'positions' => $positions
         ]);
     }
 
@@ -244,8 +240,25 @@ class Site
             $errors['first_name'] = 'Имя обязательно';
         }
 
+        $doc = Document::create([
+            'inn' => $request->inn,
+            'snils' => $request->snils,
+            'payment_account' => $request->payment_account,
+            'tabel_name' => $request->tabel_name,
+        ]);
+
+        // Создаём пользователя с привязкой к документу
+        $user = User::create([
+            'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'surname' => $request->surname,
+            'login' => $request->login,
+            'password' => $request->password,
+            'document_id' => $doc->document_id,
+            'role_id' => 2,
+        ]);
+
         if (!empty($errors)) {
-            // Вернуться назад с ошибками
             return (new View())->render('site.create_user', [
                 'errors' => $errors,
                 'old' => (array)$request,
@@ -256,7 +269,6 @@ class Site
         }
 
         $data = $request->all();
-        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
         User::create($data);
 
         app()->route->redirect('/users');
@@ -265,18 +277,16 @@ class Site
     // Форма редактирования пользователя
     public function edit_users(Request $request)
     {
-        $user = User::find($request->id);
+        $user = User::with('document')->find($request->id);
         if (!$user) {
             app()->route->redirect('/users');
         }
         $roles = Role::all();
         $positions = Position::all();
-        $documents = Document::all();
-        return (new View())->render('site.edit_user', [
-            'user' => $user,
+        return (new View())->render('site.edit', [
+            'editUser' => $user,
             'roles' => $roles,
-            'positions' => $positions,
-            'documents' => $documents
+            'positions' => $positions
         ]);
     }
 
@@ -288,28 +298,57 @@ class Site
             app()->route->redirect('/users');
         }
 
-        $data = $request->all();
+        $errors = [];
 
-        // Если пароль передан – хешируем
-        if (!empty($data['password'])) {
-            $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-        } else {
-            unset($data['password']);
+        // Проверка уникальности логина (исключая текущего)
+        if ($request->login != $user->login && User::where('login', $request->login)->exists()) {
+            $errors['login'] = 'Такой логин уже используется';
         }
 
-        // Проверка уникальности логина (исключая текущего пользователя)
-        if (isset($data['login']) && User::where('login', $data['login'])->where('id', '!=', $user->id)->exists()) {
-            $errors['login'] = 'Такой логин уже используется';
-            return (new View())->render('site.edit_user', [
-                'user' => $user,
+        if (!empty($errors)) {
+            return (new View())->render('sit.edit', [
+                'editUser' => $user,
                 'errors' => $errors,
                 'roles' => Role::all(),
-                'positions' => Position::all(),
-                'documents' => Document::all()
+                'positions' => Position::all()
             ]);
         }
 
-        $user->update($data);
+        // Обновляем основные поля
+        $user->last_name = $request->last_name;
+        $user->first_name = $request->first_name;
+        $user->surname = $request->surname;
+        $user->login = $request->login;
+
+        // Хэшируем пароль только если он передан
+        if (!empty($request->password)) {
+            $user->password = md5($request->password);
+        }
+
+        $user->role_id = $request->role_id;
+        $user->position_id = $request->position_id ?: null;
+        $user->save();
+
+        // Обновляем документ
+        if ($user->document) {
+            $user->document->update([
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name
+            ]);
+        } else {
+            // Если документа нет – создаём
+            $doc = Document::create([
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name
+            ]);
+            $user->document_id = $doc->document_id;
+            $user->save();
+        }
+
         app()->route->redirect('/users');
     }
 
