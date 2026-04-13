@@ -1,8 +1,12 @@
 <h1>Редактирование пользователя</h1>
 <?php if (!empty($errors)): ?>
-    <div style="color:red"><?= implode('<br>', $errors) ?></div>
+    <div style="color:red;">
+        <?php foreach ($errors as $error): ?>
+            <p><?= htmlspecialchars($error) ?></p>
+        <?php endforeach; ?>
+    </div>
 <?php endif; ?>
-<form action="<?= app()->route->getUrl('/users/update_user') ?>" method="POST">
+<form method="POST" action="<?= app()->route->getUrl('/users/update') ?>">
     <input type="hidden" name="id" value="<?= $editUser->id ?>">
     <label>Логин: <input type="text" name="login" value="<?= htmlspecialchars($editUser->login) ?>"></label><br>
     <label>Пароль (оставьте пустым, если не менять): <input type="password" name="password"></label><br>
@@ -12,7 +16,9 @@
     <label>Роль:
         <select name="role_id">
             <?php foreach ($roles as $role): ?>
-                <option value="<?= $role->role_id ?>" <?= ($editUser->role_id == $role->role_id) ? 'selected' : '' ?>><?= $role->role_name ?></option>
+                <option value="<?= $role->role_id ?>" <?= ($editUser->role_id == $role->role_id) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($role->role_name) ?>
+                </option>
             <?php endforeach; ?>
         </select>
     </label><br>
@@ -20,7 +26,9 @@
         <select name="position_id">
             <option value="">— нет —</option>
             <?php foreach ($positions as $pos): ?>
-                <option value="<?= $pos->position_id ?>" <?= ($editUser->position_id == $pos->position_id) ? 'selected' : '' ?>><?= $pos->position_id ?></option>
+                <option value="<?= $pos->position_id ?>" <?= ($editUser->position_id == $pos->position_id) ? 'selected' : '' ?>>
+                    Должность #<?= $pos->position_id ?> (оклад <?= htmlspecialchars($pos->base_salary) ?>)
+                </option>
             <?php endforeach; ?>
         </select>
     </label><br>
@@ -32,5 +40,5 @@
     <label>Расчётный счёт: <input type="text" name="payment_account" value="<?= htmlspecialchars($doc->payment_account ?? '') ?>"></label><br>
     <label>Табельный номер: <input type="text" name="tabel_name" value="<?= htmlspecialchars($doc->tabel_name ?? '') ?>"></label><br>
     <button type="submit">Обновить</button>
-    <a href="/users">Отмена</a>
+    <a href="<?= app()->route->getUrl('/users') ?>">Отмена</a>
 </form>

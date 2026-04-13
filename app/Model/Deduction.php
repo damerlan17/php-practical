@@ -20,5 +20,8 @@ class Deduction extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'deduction_id', 'deduction_id');
+        return $this->belongsToMany(User::class, 'user_deductions', 'deduction_id', 'user_id');
+
     }
+
 }

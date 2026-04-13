@@ -1,0 +1,1735 @@
+app/Controller/Site.php
+
+<?php
+
+namespace Controller;
+
+use Model\Post;
+use Model\Role;
+use Src\View;
+use Src\Request;
+use Model\User;
+use Src\Auth\Auth;
+use Model\Document;
+
+use Model\Position;
+use Model\Allowance;
+use Model\PositionAllowance;
+
+
+class Site
+{
+    public function index(Request $request): string
+    {
+        error_reporting(E_ALL);
+        ini_set('display_errors', 1);
+
+        $posts = Post::where('user_id', $request->id)->get();
+        return (new View())->render('site.post', ['posts' => $posts]);
+    }
+
+    public function edit(Request $request)
+    {
+        $user = app()->auth::user();
+        if (!$user) return redirect('/login');
+
+        // Если POST — сохраняем данные
+        if ($request->method === 'POST') {
+            $document = $user->document;
+            if ($document) {
+                // Обновляем существующий документ
+                $document->update([
+                    'inn' => $request->inn,
+                    'snils' => $request->snils,
+                    'payment_account' => $request->payment_account,
+                    'tabel_name' => $request->tabel_name
+                ]);
+            } else {
+                // Если документа нет (на случай ошибки), создаём новый
+                $user->document()->create([
+                    'inn' => $request->inn,
+                    'snils' => $request->snils,
+                    'payment_account' => $request->payment_account,
+                    'tabel_name' => $request->tabel_name
+                ]);
+            }
+            // Редирект на профиль с сообщением
+            app()->route->redirect('/edit');
+        }
+
+        return (new View())->render('site.edit', ['user' => $user]);
+    }
+
+    public function showRole()
+    {
+        $user = app()->auth::user();
+        return new View('role.show', ['role' => $user->role]);
+    }
+
+    public function signup(Request $request): string
+    {
+        if ($request->method === 'GET') {
+            return new View('site.signup');
+        }
+
+        // Создаём документ с данными из формы
+        $doc = Document::create([
+            'inn' => $request->inn,
+            'snils' => $request->snils,
+            'payment_account' => $request->payment_account,
+            'tabel_name' => $request->tabel_name,
+        ]);
+
+        // Создаём пользователя с привязкой к документу
+        $user = User::create([
+            'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'surname' => $request->surname,
+            'login' => $request->login,
+            'password' => $request->password,
+            'document_id' => $doc->document_id,
+            'role_id' => 2,
+        ]);
+
+        if ($user) {
+            app()->route->redirect('/login');
+        }
+
+        return new View('site.signup', ['message' => 'Ошибка регистрации']);
+    }
+
+    public function login(Request $request): string
+    {
+        //Если просто обращение к странице, то отобразить форму
+        if ($request->method === 'GET') {
+            return new View('site.login');
+        }
+        //Если удалось аутентифицировать пользователя, то редирект
+        if (Auth::attempt($request->all())) {
+            app()->route->redirect('/hello');
+        }
+        //Если аутентификация не удалась, то сообщение об ошибке
+        return new View('site.login', ['message' => 'Неправильные логин или пароль']);
+    }
+
+    public function logout(): void
+    {
+        Auth::logout();
+        app()->route->redirect('/hello');
+    }
+    public function hello(): string
+    {
+        $user = app()->auth::user();
+        return new View('site.hello', ['user' => $user, 'role' => $user->role]);
+    }
+
+    public function positions()
+    {
+        $positions = Position::with('positionAllowance.allowance')->get();
+        return (new View())->render('site.positions', ['positions' => $positions]);
+    }
+
+    public function create_position()
+    {
+        $allowances = Allowance::all();
+        return (new View())->render('site.create_position', ['allowances' => $allowances]);
+    }
+
+    public function edit_position(Request $request)
+    {
+        $position = Position::with('positionAllowance')->find($request->id);
+        if (!$position) {
+            app()->route->redirect('/positions');
+        }
+        $allowances = Allowance::all();
+        return (new View())->render('site.edit_position', [   // ← исправлено
+            'position' => $position,
+            'allowances' => $allowances
+        ]);
+    }
+    public function updatePosition(Request $request)
+    {
+        $position = Position::find($request->id);
+        if ($position) {
+            $allowanceId = $request->allowance_id;
+            $posAllowance = $position->positionAllowance;
+            if ($allowanceId) {
+                if ($posAllowance) {
+                    $posAllowance->update(['allowance_id' => $allowanceId]);
+                } else {
+                    $new = PositionAllowance::create(['allowance_id' => $allowanceId]);
+                    $position->id_allowance_position = $new->id_allowance_position;
+                }
+            } else {
+                if ($posAllowance) {
+                    $posAllowance->delete();
+                    $position->id_allowance_position = null;
+                }
+            }
+            $position->base_salary = $request->base_salary;
+            $position->save();
+        }
+        app()->route->redirect('/positions');
+    }
+
+    public function deletePosition(Request $request)
+    {
+        $position = Position::find($request->id);
+        if ($position) {
+            // 1. Обнуляем position_id у всех пользователей, у которых была эта должность
+            User::where('position_id', $position->position_id)->update(['position_id' => null]);
+
+            // 2. Если у должности была связанная надбавка – обнуляем ссылку и удаляем запись в position_allowances
+            if ($position->positionAllowance) {
+                $position->id_allowance_position = null;
+                $position->save();
+                $position->positionAllowance->delete();
+            }
+
+            // 3. Удаляем саму должность
+            $position->delete();
+        }
+        app()->route->redirect('/positions');
+    }
+
+    public function storePosition(Request $request)
+    {
+        $allowanceId = $request->allowance_id;
+        $posAllowance = null;
+        if ($allowanceId) {
+            $posAllowance = PositionAllowance::create(['allowance_id' => $allowanceId]);
+        }
+        $position = Position::create([
+            'base_salary' => $request->base_salary,
+            'id_allowance_position' => $posAllowance ? $posAllowance->id_allowance_position : null
+        ]);
+        // Редирект или страница успеха
+        app()->route->redirect('/positions');
+    }
+
+    public function users()
+    {
+        $users = User::with('role', 'position')->get(); // загружаем связи
+        return (new View())->render('site.users', ['users' => $users]);
+    }
+
+    // Форма создания пользователя
+    public function create_users()
+    {
+        $roles = Role::all();
+        $positions = Position::all();
+        // Документы не нужны – они создаются автоматически при сохранении
+        return (new View())->render('site.create_user', [
+            'roles' => $roles,
+            'positions' => $positions
+        ]);
+    }
+
+    // Сохранение нового пользователя
+    public function storeUsers(Request $request)
+    {
+        // Валидация (простая)
+        $errors = [];
+        if (empty($request->login)) {
+            $errors['login'] = 'Логин обязателен';
+        } elseif (User::where('login', $request->login)->exists()) {
+            $errors['login'] = 'Такой логин уже используется';
+        }
+        if (empty($request->password)) {
+            $errors['password'] = 'Пароль обязателен';
+        }
+        if (empty($request->first_name)) {
+            $errors['first_name'] = 'Имя обязательно';
+        }
+
+        $doc = Document::create([
+            'inn' => $request->inn,
+            'snils' => $request->snils,
+            'payment_account' => $request->payment_account,
+            'tabel_name' => $request->tabel_name,
+        ]);
+
+        // Создаём пользователя с привязкой к документу
+        $user = User::create([
+            'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'surname' => $request->surname,
+            'login' => $request->login,
+            'password' => $request->password,
+            'document_id' => $doc->document_id,
+            'role_id' => 2,
+        ]);
+
+        if (!empty($errors)) {
+            return (new View())->render('site.create_user', [
+                'errors' => $errors,
+                'old' => (array)$request,
+                'roles' => Role::all(),
+                'positions' => Position::all(),
+                'documents' => Document::all()
+            ]);
+        }
+
+        $data = $request->all();
+        User::create($data);
+
+        app()->route->redirect('/users');
+    }
+
+    // Форма редактирования пользователя
+    public function edit_users(Request $request)
+    {
+        $user = User::with('document')->find($request->id);
+        if (!$user) {
+            app()->route->redirect('/users');
+        }
+        $roles = Role::all();
+        $positions = Position::all();
+        return (new View())->render('site.edit_users', [
+            'editUser' => $user,
+            'roles' => $roles,
+            'positions' => $positions
+        ]);
+    }
+
+
+    // Обновление пользователя
+    public function updateUsers(Request $request)
+    {
+        $user = User::find($request->id);
+        if (!$user) {
+            app()->route->redirect('/users');
+        }
+
+        $errors = [];
+
+        // Проверка уникальности логина (исключая текущего)
+        if ($request->login != $user->login && User::where('login', $request->login)->exists()) {
+            $errors['login'] = 'Такой логин уже используется';
+        }
+
+        if (!empty($errors)) {
+            return (new View())->render('site.edit_users', [
+                'editUser' => $user,
+                'errors' => $errors,
+                'roles' => Role::all(),
+                'positions' => Position::all()
+            ]);
+        }
+
+        // Обновляем основные поля
+        $user->last_name = $request->last_name;
+        $user->first_name = $request->first_name;
+        $user->surname = $request->surname;
+        $user->login = $request->login;
+
+        // Хэшируем пароль только если он передан
+        if (!empty($request->password)) {
+            $user->password = md5($request->password);
+        }
+
+        $user->role_id = $request->role_id;
+        $user->position_id = $request->position_id ?: null;
+        $user->save();
+
+        // Обновляем документ
+        if ($user->document) {
+            $user->document->update([
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name
+            ]);
+        } else {
+            // Если документа нет – создаём
+            $doc = Document::create([
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name
+            ]);
+            $user->document_id = $doc->document_id;
+            $user->save();
+        }
+
+        app()->route->redirect('/users');
+    }
+
+    public function deleteUsers(Request $request)
+    {
+        $currentUser = app()->auth::user();
+        $user = User::find($request->id);
+
+        if ($user && $user->id !== $currentUser->id) {
+            $docId = $user->document_id;
+
+            // 1. Отвязываем документ от пользователя
+            if ($docId) {
+                $user->document_id = null;
+                $user->save();
+            }
+
+            // 2. Удаляем документ (если был)
+            if ($docId) {
+                Document::destroy($docId);
+            }
+
+            // 3. Удаляем пользователя
+            $user->delete();
+        }
+        app()->route->redirect('/users');
+    }
+
+
+
+}
+
+app/Middlewares/AuthMiddleware.php
+
+<?php
+
+namespace Middlewares;
+
+use Src\Auth\Auth;
+use Src\Request;
+
+class AuthMiddleware
+{
+    public function handle(Request $request)
+    {
+        //Если пользователь не авторизован, то редирект на страницу входа
+        if (!Auth::check()) {
+            app()->route->redirect('/login');
+        }
+    }
+}
+
+
+app/Middlewares/RoleMiddleware.php
+
+<?php
+
+namespace Middleware;
+
+use Src\Auth\Auth;
+
+class RoleMiddleware
+{
+    public function handle($role)
+    {
+        $user = Auth::user();
+        if (!$user || $user->role->role_name !== $role) {
+            http_response_code(403);
+            die('Доступ запрещён');
+        }
+    }
+}
+
+app/Model/Allowance.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Allowance extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $table = 'allowances';
+    protected $fillable = [
+        'name_allowance',
+        'precent_allowance'
+    ];
+
+    // Связь "многие ко многим" с должностями через промежуточную таблицу position_allowances
+    public function positions()
+    {
+        return $this->belongsToMany(Position::class, 'position_allowances', 'allowance_id', 'id_allowance_position');
+    }
+}
+
+app/Model/Deduction.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Deduction extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $table = 'deductions';
+    protected $fillable = [
+        'deduction_name',
+        'amount_deduction'
+    ];
+
+    // Связь с пользователями (один ко многим)
+    public function users()
+    {
+        return $this->hasMany(User::class, 'deduction_id', 'deduction_id');
+    }
+}
+
+app/Model/Document.php
+
+<?php
+namespace Model;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Document extends Model
+{
+    public $timestamps = false;          // отключаем created_at и updated_at
+    protected $table = 'documents';
+    protected $primaryKey = 'document_id';
+    protected $fillable = [
+        'inn', 'snils', 'payment_account', 'tabel_name'
+    ];
+}
+
+app/Model/PayrollReport.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class PayrollReport extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $table = 'payroll_reports';
+    protected $fillable = [
+        'user_id',
+        'date_report',
+        'total_accued',
+        'total_deducted',
+        'final_sum'
+    ];
+
+    // Связь с пользователем (принадлежит одному пользователю)
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+}
+
+app/Model/Position.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+
+class Position extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $table = 'positions';
+    protected $primaryKey = 'position_id';
+    protected $fillable = [
+        'id_allowance_position',
+        'base_salary'
+    ];
+
+    // Связь с промежуточной таблицей position_allowances (должность имеет одну запись в связке)
+    public function positionAllowance()
+    {
+        return $this->belongsTo(PositionAllowance::class, 'id_allowance_position', 'id_allowance_position');
+    }
+
+    // Доступ к надбавке через промежуточную таблицу
+    public function allowance()
+    {
+        return $this->hasOneThrough(
+            Allowance::class,
+            PositionAllowance::class,
+            'id_allowance_position', // внешний ключ в position_allowances
+            'allowance_id',          // внешний ключ в allowances
+            'id_allowance_position', // локальный ключ в positions
+            'allowance_id'           // локальный ключ в position_allowances
+        );
+    }
+
+    // Связь с пользователями (один ко многим)
+    public function users()
+    {
+        return $this->hasMany(User::class, 'position_id', 'position_id');
+    }
+}
+
+app/Model/PositionAllowance.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class PositionAllowance extends Model
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $table = 'position_allowances';
+    protected $primaryKey = 'id_allowance_position';
+    protected $fillable = [
+        'allowance_id'
+    ];
+
+    // Связь с надбавкой
+    public function allowance()
+    {
+        return $this->belongsTo(Allowance::class, 'allowance_id', 'allowance_id');
+    }
+
+    // Связь с должностью (один к одному, так как внешний ключ в positions)
+    public function position()
+    {
+        return $this->hasOne(Position::class, 'id_allowance_position', 'id_allowance_position');
+    }
+}
+
+app/Model/Post.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    use HasFactory;
+    public $timestamps = false;
+}
+
+app/Model/Role.php
+
+<?php
+namespace Model;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Role extends Model
+{
+    public $timestamps = false;
+    protected $table = 'roles';
+    protected $fillable = ['role_name'];
+}
+
+app/Model/User.php
+
+<?php
+
+namespace Model;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Src\Auth\IdentityInterface;
+
+class User extends Model implements IdentityInterface
+{
+    use HasFactory;
+
+    public $timestamps = false;
+    protected $fillable = [
+        'first_name',
+        'login',
+        'password',
+        'last_name',
+        'surname',
+        'document_id',
+        'role_id',
+        'position_id'
+    ];
+    protected static function booted()
+    {
+        static::created(function ($user) {
+            $user->password = md5($user->password);
+            $user->save();
+        });
+    }
+
+    // Выборка пользователя по первичному ключу
+    public function findIdentity(int $id)
+    {
+        return self::where('id', $id)->first();
+    }
+
+    // Возврат первичного ключа
+    public function getId(): int
+    {
+        return $this->id;
+    }
+
+    // Возврат аутентифицированного пользователя
+    public function attemptIdentity(array $credentials)
+    {
+        return self::where(['login' => $credentials['login'],
+            'password' => md5($credentials['password'])])->first();
+    }
+
+    // Связь с должностью
+    public function position()
+    {
+        return $this->belongsTo(Position::class, 'position_id', 'position_id');
+    }
+
+    // Связь с удержанием
+    public function deduction()
+    {
+        return $this->belongsTo(Deduction::class, 'deduction_id', 'deduction_id');
+    }
+
+    // Связь с документами
+    public function document() {
+        return $this->belongsTo(Document::class, 'document_id', 'document_id');
+    }
+
+    // Связь с отчётами по зарплате
+    public function payrollReports()
+    {
+        return $this->hasMany(PayrollReport::class, 'user_id', 'id');
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id', 'role_id');
+    }
+}
+
+config/app.php
+
+<?php
+return [
+    //Класс аутентификации
+    'auth' => \Src\Auth\Auth::class,
+    //Класс пользователя
+    'identity' => \Model\User::class,
+    //Классы для middleware
+    'routeMiddleware' => [
+        'auth' => \Middlewares\AuthMiddleware::class,
+    ]
+];
+
+config/db.php
+
+<?php
+return [
+    'driver' => 'mysql',
+    'host' => 'localhost',
+    'database' => 'jnkrvkaf_m1',
+    'username' => 'root',
+    'password' => '',
+    'charset' => 'utf8',
+    'collation' => 'utf8_unicode_ci',
+    'prefix' => '',
+];
+
+config/path.php
+
+<?php
+return [
+    //Адрес относительно домена
+    'root' => 'php-practical',
+    //Настройка директории с маршрутами
+    'routes' => 'routes',
+    //Настройка директории с представлениями
+    'views' => 'views'
+];
+
+core/Src/Auth/Auth.php
+
+<?php
+
+namespace Src\Auth;
+
+use Src\Session;
+
+class Auth
+{
+    //Свойство для хранения любого класса, реализующего интерфейс IdentityInterface
+    private static IdentityInterface $user;
+
+    //Инициализация класса пользователя
+    public static function init(IdentityInterface $user): void
+    {
+        self::$user = $user;
+        if (self::user()) {
+            self::login(self::user());
+        }
+    }
+
+    //Вход пользователя по модели
+    public static function login(IdentityInterface $user): void
+    {
+        self::$user = $user;
+        Session::set('id', self::$user->getId());
+    }
+
+    //Аутентификация пользователя и вход по учетным данным
+    public static function attempt(array $credentials): bool
+    {
+        if ($user = self::$user->attemptIdentity($credentials)) {
+            self::login($user);
+            return true;
+        }
+        return false;
+    }
+
+    //Возврат текущего аутентифицированного пользователя
+    public static function user()
+    {
+        $id = Session::get('id') ?? 0;
+        return self::$user->findIdentity($id);
+    }
+
+    //Проверка является ли текущий пользователь аутентифицированным
+    public static function check(): bool
+    {
+        if (self::user()) {
+            return true;
+        }
+        return false;
+    }
+
+    //Выход текущего пользователя
+    public static function logout(): bool
+    {
+        Session::clear('id');
+        return true;
+    }
+
+}
+
+core/Src/Auth/IdentityInterface.php
+
+<?php
+
+namespace Src\Auth;
+
+interface IdentityInterface
+{
+    public function findIdentity(int $id);
+
+    public function getId(): int;
+
+    public function attemptIdentity(array $credentials);
+}
+
+core/Src/Traits/SingletonTrait.php
+
+<?php
+
+namespace Src\Traits;
+
+//Позволяет для любого класса организовать паттерн Одиночка
+trait SingletonTrait
+{
+    private static self $instance;
+
+    public static function single(): self
+    {
+        if (empty(self::$instance)) self::$instance = new static();
+        return self::$instance;
+    }
+
+    private function __construct()
+    {
+    }
+}
+
+core/Src/Application.php
+
+<?php
+
+namespace Src;
+
+use Error;
+use Illuminate\Container\Container;
+use Illuminate\Events\Dispatcher;
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Src\Auth\Auth;
+
+class Application
+{
+    private Settings $settings;
+    private Route $route;
+    private Capsule $dbManager;
+    private Auth $auth;
+
+    public function __construct(Settings $settings)
+    {
+        //Привязываем класс со всеми настройками приложения
+        $this->settings = $settings;
+        //Привязываем класс маршрутизации с установкой префикса
+        $this->route = Route::single()->setPrefix($this->settings->getRootPath());
+        //Создаем класс менеджера для базы данных
+        $this->dbManager = new Capsule();
+        //Создаем класс для аутентификации на основе настроек приложения
+        $this->auth = new $this->settings->app['auth'];
+
+        //Настройка для работы с базой данных
+        $this->dbRun();
+        //Инициализация класса пользователя на основе настроек приложения
+        $this->auth::init(new $this->settings->app['identity']);
+    }
+
+    public function __get($key)
+    {
+        switch ($key) {
+            case 'settings':
+                return $this->settings;
+            case 'route':
+                return $this->route;
+            case 'auth':
+                return $this->auth;
+        }
+        throw new Error('Accessing a non-existent property');
+    }
+
+    private function dbRun()
+    {
+        $this->dbManager->addConnection($this->settings->getDbSetting());
+        $this->dbManager->setEventDispatcher(new Dispatcher(new Container));
+        $this->dbManager->setAsGlobal();
+        $this->dbManager->bootEloquent();
+    }
+
+    public function run(): void
+    {
+        //Запуск маршрутизации
+        $this->route->start();
+    }
+}
+
+core/Src/Middleware.php
+
+<?php
+
+namespace Src;
+
+use FastRoute\RouteCollector;
+use FastRoute\RouteParser\Std;
+use FastRoute\DataGenerator\MarkBased;
+use FastRoute\Dispatcher\MarkBased as Dispatcher;
+use Src\Traits\SingletonTrait;
+
+class Middleware
+{
+    //Используем трейт
+    use SingletonTrait;
+
+    private RouteCollector $middlewareCollector;
+
+    public function add($httpMethod, string $route, array $action): void
+    {
+        $this->middlewareCollector->addRoute($httpMethod, $route, $action);
+    }
+
+    public function group(string $prefix, callable $callback): void
+    {
+        $this->middlewareCollector->addGroup($prefix, $callback);
+    }
+
+    //Конструктор скрыт. Вызывается только один раз
+    private function __construct()
+    {
+        $this->middlewareCollector = new RouteCollector(new Std(), new MarkBased());
+    }
+
+    //Запуск всех middlewares для текущего маршрута
+    public function runMiddlewares(string $httpMethod, string $uri): Request
+    {
+        $request = new Request();
+        //Получаем список всех разрешенных классов middlewares из настроек приложения
+        $routeMiddleware = app()->settings->app['routeMiddleware'];
+
+        //Перебираем все middlewares для текущего адреса
+        foreach ($this->getMiddlewaresForRoute($httpMethod, $uri) as $middleware) {
+            $args = explode(':', $middleware);
+            //Создаем объект и вызываем метод handle
+            (new $routeMiddleware[$args[0]])->handle($request, $args[1]?? null);
+        }
+        //Возвращаем итоговый request
+        return $request;
+    }
+
+    //Поиск middlewares по адресу
+    private function getMiddlewaresForRoute(string $httpMethod, string $uri): array
+    {
+        $dispatcherMiddleware = new Dispatcher($this->middlewareCollector->getData());
+        return $dispatcherMiddleware->dispatch($httpMethod, $uri)[1] ?? [];
+    }
+}
+
+core/Src/Request.php
+
+<?php
+
+namespace Src;
+
+use Error;
+
+class Request
+{
+    protected array $body;
+    public string $method;
+    public array $headers;
+
+    public function __construct()
+    {
+        $this->body = $_REQUEST;
+        $this->method = $_SERVER['REQUEST_METHOD'];
+        $this->headers = getallheaders() ?? [];
+    }
+
+    public function all(): array
+    {
+        return $this->body + $this->files();
+    }
+
+    public function set($field, $value):void
+    {
+        $this->body[$field] = $value;
+    }
+
+    public function get($field)
+    {
+        return $this->body[$field];
+    }
+
+    public function files(): array
+    {
+        return $_FILES;
+    }
+
+    public function __get($key)
+    {
+        if (array_key_exists($key, $this->body)) {
+            return $this->body[$key];
+        }
+        throw new Error('Accessing a non-existent property');
+    }
+}
+
+core/Src/Route.php
+
+<?php
+
+namespace Src;
+
+use Error;
+
+use FastRoute\RouteCollector;
+use FastRoute\RouteParser\Std;
+use FastRoute\DataGenerator\MarkBased;
+use FastRoute\Dispatcher\MarkBased as Dispatcher;
+use Src\Traits\SingletonTrait;
+
+class Route
+{
+    //Используем методы трейта
+    use SingletonTrait;
+
+    //Свойство для хранения текущего маршрута
+    private string $currentRoute = '';
+    private $currentHttpMethod;
+
+    //Свойство для префикса для всех маршрутов
+    private string $prefix = '';
+
+    //Классы для использования внешнего маршрутизатора
+    private RouteCollector $routeCollector;
+
+    //Добавляет маршрут, устанавливает его текущим и возвращает объект
+    public static function add($httpMethod, string $route, array $action): self
+    {
+        self::single()->routeCollector->addRoute($httpMethod, $route, $action);
+        self::single()->currentHttpMethod = $httpMethod;
+        self::single()->currentRoute = $route;
+        return self::single();
+    }
+
+    //Добавляет префикс для обозначенных маршрутов
+    public static function group(string $prefix, callable $callback): void
+    {
+        self::single()->routeCollector->addGroup($prefix, $callback);
+        Middleware::single()->group($prefix, $callback);
+    }
+
+    //Конструктор скрыт. Вызывается только один раз
+    private function __construct()
+    {
+        $this->routeCollector = new RouteCollector(new Std(), new MarkBased());
+    }
+
+    public function setPrefix(string $value = ''): self
+    {
+        $this->prefix = $value;
+        return $this;
+    }
+
+    public function redirect(string $url): void
+    {
+        header('Location: ' . $this->getUrl($url));
+    }
+
+    public function getUrl(string $url): string
+    {
+        return $this->prefix . $url;
+    }
+
+    //Добавление middlewares для текущего маршрута
+    public function middleware(...$middlewares): self
+    {
+        Middleware::single()->add($this->currentHttpMethod, $this->currentRoute, $middlewares);
+        return $this;
+
+    }
+
+    public function start(): void
+    {
+        // Fetch method and URI from somewhere
+        $httpMethod = $_SERVER['REQUEST_METHOD'];
+        $uri = $_SERVER['REQUEST_URI'];
+
+        // Strip query string (?foo=bar) and decode URI
+        if (false !== $pos = strpos($uri, '?')) {
+            $uri = substr($uri, 0, $pos);
+        }
+        $uri = rawurldecode($uri);
+        $uri = substr($uri, strlen($this->prefix));
+
+        $dispatcher = new Dispatcher($this->routeCollector->getData());
+
+        $routeInfo = $dispatcher->dispatch($httpMethod, $uri);
+
+        switch ($routeInfo[0]) {
+
+            case Dispatcher::NOT_FOUND:
+
+                throw new Error('NOT_FOUND');
+
+            case Dispatcher::METHOD_NOT_ALLOWED:
+                throw new Error('METHOD_NOT_ALLOWED');
+            case Dispatcher::FOUND:
+                $handler = $routeInfo[1];
+                $vars = array_values($routeInfo[2]);
+                $vars[] = Middleware::single()->runMiddlewares($httpMethod, $uri);
+                $class = $handler[0];
+                $action = $handler[1];
+                call_user_func([new $class, $action], ...$vars);
+                break;
+        }
+    }
+}
+
+core/Src/Session.php
+
+<?php
+
+namespace Src;
+
+class Session
+{
+    public static function set($name, $value): void
+    {
+        $_SESSION[$name] = $value;
+    }
+
+    public static function get($name)
+    {
+        return $_SESSION[$name] ?? null;
+    }
+
+    public static function clear($name)
+    {
+        unset($_SESSION[$name]);
+    }
+}
+
+core/Src/Settings.php
+
+<?php
+
+namespace Src;
+
+use Error;
+
+class Settings
+{
+    private array $_settings;
+
+    public function __construct(array $settings = [])
+    {
+        $this->_settings = $settings;
+    }
+
+    public function __get($key)
+    {
+        if (array_key_exists($key, $this->_settings)) {
+            return $this->_settings[$key];
+        }
+        throw new Error('Accessing a non-existent property');
+    }
+
+    public function getRootPath(): string
+    {
+        return $this->path['root'] ? '/' . $this->path['root'] : '';
+    }
+
+    public function getViewsPath(): string
+    {
+        return '/' . $this->path['views'] ?? '';
+    }
+    public function getDbSetting(): array
+    {
+        return $this->db ?? [];
+    }
+}
+
+core/Src/View.php
+
+<?php
+
+namespace Src;
+
+use Exception;
+
+class View
+{
+    private string $view = '';
+    private array $data = [];
+    private string $root = '';
+    private string $layout = '/layouts/main.php';
+
+    public function __construct(string $view = '', array $data = [])
+    {
+        $this->root = $this->getRoot();
+        $this->view = $view;
+        $this->data = $data;
+    }
+
+    //Полный путь до директории с представлениями
+    private function getRoot(): string
+    {
+        global $app;
+        $root = $app->settings->getRootPath();
+        $path = $app->settings->getViewsPath();
+
+        return $_SERVER['DOCUMENT_ROOT'] . $root . $path;
+    }
+
+    //Путь до основного файла с шаблоном сайта
+    private function getPathToMain(): string
+    {
+        return $this->root . $this->layout;
+    }
+
+    //Путь до текущего шаблона
+    private function getPathToView(string $view = ''): string
+    {
+        $view = str_replace('.', '/', $view);
+        return $this->getRoot() . "/$view.php";
+    }
+
+    public function render(string $view = '', array $data = []): string
+    {
+        $path = $this->getPathToView($view);
+
+        if (file_exists($this->getPathToMain()) && file_exists($path)) {
+
+            //Импортирует переменные из массива в текущую таблицу символов
+            extract($data, EXTR_PREFIX_SAME, '');
+
+            //Включение буферизации вывода
+            ob_start();
+            require $path;
+            //Помещаем буфер в переменную и очищаем его
+            $content = ob_get_clean();
+
+            //Возвращаем собранную страницу
+            return require($this->getPathToMain());
+        }
+        throw new Exception('Error render');
+    }
+
+    public function __toString(): string
+    {
+        return $this->render($this->view, $this->data);
+    }
+
+}
+
+core/bootstrap.php
+
+<?php
+//Путь до директории с конфигурационными файлами
+const DIR_CONFIG = '/../config';
+
+//Подключение автозагрузчика composer
+require_once __DIR__ . '/../vendor/autoload.php';
+
+//Функция, возвращающая массив всех настроек приложения
+function getConfigs(string $path = DIR_CONFIG): array
+{
+    $settings = [];
+    foreach (scandir(__DIR__ . $path) as $file) {
+        $name = explode('.', $file)[0];
+        if (!empty($name)) {
+            $settings[$name] = include __DIR__ . "$path/$file";
+        }
+    }
+    return $settings;
+}
+
+require_once __DIR__ . '/../routes/web.php';
+$app = new Src\Application(new Src\Settings(getConfigs()));
+
+//Функция возвращает глобальный экземпляр приложения
+function app() {
+    global $app;
+    return $app;
+}
+
+return $app;
+
+public/.htaccess
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [l]
+</IfModule>
+
+public/index.php
+
+<?php
+declare(strict_types=1);
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+//Включаем сессии на все страницы
+session_start();
+
+try {
+    //Создаем экземпляр приложения и запускаем его
+    $app = require_once __DIR__ . '/../core/bootstrap.php';
+    $app->run();
+} catch (\Throwable $exception) {
+    echo '<pre>';
+    print_r($exception);
+    echo '</pre>';
+}
+
+routes/web.php
+
+<?php
+
+use Src\Route;
+
+Route::add('GET', '/hello', [Controller\Site::class, 'hello'])
+    ->middleware('auth');
+Route::add(['GET', 'POST'], '/signup', [Controller\Site::class, 'signup']);
+Route::add(['GET', 'POST'], '/login', [Controller\Site::class, 'login']);
+Route::add('GET', '/logout', [Controller\Site::class, 'logout']);
+
+Route::add(['GET', 'POST'], '/edit', [Controller\Site::class, 'edit']);
+
+Route::add('GET', '/positions', [Controller\Site::class, 'positions']);
+Route::add('GET', '/create_position', [Controller\Site::class, 'create_position']);
+Route::add('GET', '/edit_position', [Controller\Site::class, 'edit_position']);
+Route::add('POST', '/update', [Controller\Site::class, 'updatePosition']);
+Route::add('POST', '/delete', [Controller\Site::class, 'deletePosition']);
+Route::add('POST', '/stored', [Controller\Site::class, 'storePosition']);
+
+
+// Управление пользователями
+Route::add('GET', '/users', [Controller\Site::class, 'users']);
+Route::add('GET', '/users/create_users', [Controller\Site::class, 'create_users']);        // добавили слеш
+Route::add('POST', '/store', [Controller\Site::class, 'storeUsers']);
+         // единообразно
+
+Route::add('GET', '/users/delete', [Controller\Site::class, 'deleteUsers']);      // GET для простоты
+
+
+Route::add('GET', '/users/edit_users', [Controller\Site::class, 'edit_users']);
+Route::add('POST', '/users/update_user', [Controller\Site::class, 'updateUsers']);
+
+views/layouts/main.php
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Pop it MVC</title>
+</head>
+<body>
+<header>
+    <nav>
+
+        <a href="<?= app()->route->getUrl('/hello') ?>">Главная</a>
+        <?php
+        if (!app()->auth::check()):
+            ?>
+            <a href="<?= app()->route->getUrl('/login') ?>">Вход</a>
+            <a href="<?= app()->route->getUrl('/signup') ?>">Регистрация</a>
+        <?php
+        else:
+            ?>
+            <a href="<?= app()->route->getUrl('/positions') ?>">Должности</a>
+            <a href="<?= app()->route->getUrl('/users') ?>">Пользователи</a>
+
+            <a href="<?= app()->route->getUrl('/logout') ?>">Выход (<?= app()->auth::user()->last_name ?>)</a>
+        <?php
+        endif;
+        ?>
+    </nav>
+</header>
+<main>
+    <?= $content ?? '' ?>
+</main>
+
+</body>
+</html>
+
+views/site/create_position.php
+
+<?php
+$title = 'Новая должность';
+ob_start();
+?>
+    <h1>Новая должность</h1>
+    <form action="<?= app()->route->getUrl('/stored') ?>" method="POST">
+        <label>Базовый оклад:</label>
+        <input type="number" step="0.01" name="base_salary" required><br>
+        <label>Надбавка:</label>
+        <select name="allowance_id">
+            <option value="">— без надбавки —</option>
+            <?php foreach ($allowances as $a): ?>
+                <option value="<?= $a->allowance_id ?>"><?= htmlspecialchars($a->name_allowance) ?> (<?= $a->precent_allowance ?>)</option>
+            <?php endforeach; ?>
+        </select><br>
+        <button type="submit">Сохранить</button>
+        <a href="/positions">Отмена</a>
+    </form>
+
+views/site/create_user.php
+
+<h1>Добавить пользователя</h1>
+
+<form method="POST" action="<?= app()->route->getUrl('/store') ?>">
+    <label>Логин: <input type="text" name="login" value="<?= htmlspecialchars($old['login'] ?? '') ?>"></label><br>
+    <label>Пароль: <input type="password" name="password"></label><br>
+    <label>Имя: <input type="text" name="first_name" value="<?= htmlspecialchars($old['first_name'] ?? '') ?>"></label><br>
+    <label>Фамилия: <input type="text" name="last_name" value="<?= htmlspecialchars($old['last_name'] ?? '') ?>"></label><br>
+    <label>Отчество: <input type="text" name="surname" value="<?= htmlspecialchars($old['surname'] ?? '') ?>"></label><br>
+    <label>Роль:
+        <select name="role_id">
+            <?php foreach ($roles as $role): ?>
+                <option value="<?= $role->role_id ?>" <?= ($old['role_id'] ?? '') == $role->id ? 'selected' : '' ?>><?= $role->role_name ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label><br>
+    <label>Должность:
+        <select name="position_id">
+            <?php foreach ($positions as $position): ?>
+                <option value="<?= $position->position_id ?>">Должность #<?= $position->position_id ?> (оклад <?= $position->base_salary ?>)</option>
+            <?php endforeach; ?>
+        </select>
+    </label><br>
+    <label>Документ:
+        <input type="text" name="inn" placeholder="ИНН">
+        <input type="text" name="snils" placeholder="СНИЛС">
+        <input type="text" name="payment_account" placeholder="Расчётный счёт">
+        <input type="text" name="tabel_name" placeholder="Табельный номер">
+    </label><br>
+    <button type="submit">Сохранить</button>
+</form>
+
+views/site/edit.php
+
+<h1>Форма редактирования</h1>
+<p>Пользователь: <?= $user->last_name ?> <?= $user->first_name ?></p>
+<form method="POST">
+    <label>ИНН: <input type="text" name="inn" value="<?= htmlspecialchars($user->document->inn ?? '') ?>"></label><br>
+    <label>СНИЛС: <input type="text" name="snils" value="<?= htmlspecialchars($user->document->snils ?? '') ?>"></label><br>
+    <label>Расчётный счёт: <input type="text" name="payment_account" value="<?= htmlspecialchars($user->document->payment_account ?? '') ?>"></label><br>
+    <label>Табельный номер: <input type="text" name="tabel_name" value="<?= htmlspecialchars($user->document->tabel_name ?? '') ?>"></label><br>
+    <button type="submit">Сохранить</button>
+</form>
+<a href="<?= app()->route->getUrl('/hello') ?>">Назад</a>
+
+views/site/edit_position.php
+
+<?php
+$title = 'Редактирование должности';
+ob_start();
+?>
+    <h1>Редактирование должности</h1>
+    <form action="<?= app()->route->getUrl('/update') ?>" method="POST">
+        <input type="hidden" name="id" value="<?= $position->position_id ?>">
+        <label>Базовый оклад:</label>
+        <input type="number" step="0.01" name="base_salary" value="<?= $position->base_salary ?>" required><br>
+        <label>Надбавка:</label>
+        <select name="allowance_id">
+            <option value="">— без надбавки —</option>
+            <?php
+            $currentAllowanceId = $position->positionAllowance->allowance_id ?? null;
+            foreach ($allowances as $a): ?>
+                <option value="<?= $a->allowance_id ?>" <?= ($currentAllowanceId == $a->allowance_id) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($a->name_allowance) ?> (<?= $a->precent_allowance ?>)
+                </option>
+            <?php endforeach; ?>
+        </select><br>
+        <button type="submit">Обновить</button>
+        <a href="/positions">Отмена</a>
+    </form>
+
+views/site/edit_users.php
+
+<h1>Редактирование пользователя</h1>
+<?php if (!empty($errors)): ?>
+    <div style="color:red"><?= implode('<br>', $errors) ?></div>
+<?php endif; ?>
+<form action="<?= app()->route->getUrl('/users/update_user') ?>" method="POST">
+    <input type="hidden" name="id" value="<?= $editUser->id ?>">
+    <label>Логин: <input type="text" name="login" value="<?= htmlspecialchars($editUser->login) ?>"></label><br>
+    <label>Пароль (оставьте пустым, если не менять): <input type="password" name="password"></label><br>
+    <label>Фамилия: <input type="text" name="last_name" value="<?= htmlspecialchars($editUser->last_name) ?>"></label><br>
+    <label>Имя: <input type="text" name="first_name" value="<?= htmlspecialchars($editUser->first_name) ?>"></label><br>
+    <label>Отчество: <input type="text" name="surname" value="<?= htmlspecialchars($editUser->surname) ?>"></label><br>
+    <label>Роль:
+        <select name="role_id">
+            <?php foreach ($roles as $role): ?>
+                <option value="<?= $role->role_id ?>" <?= ($editUser->role_id == $role->role_id) ? 'selected' : '' ?>><?= $role->role_name ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label><br>
+    <label>Должность:
+        <select name="position_id">
+            <option value="">— нет —</option>
+            <?php foreach ($positions as $pos): ?>
+                <option value="<?= $pos->position_id ?>" <?= ($editUser->position_id == $pos->position_id) ? 'selected' : '' ?>><?= $pos->position_id ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label><br>
+    <hr>
+    <h3>Документы</h3>
+    <?php $doc = $editUser->document ?? null; ?>
+    <label>ИНН: <input type="text" name="inn" value="<?= htmlspecialchars($doc->inn ?? '') ?>"></label><br>
+    <label>СНИЛС: <input type="text" name="snils" value="<?= htmlspecialchars($doc->snils ?? '') ?>"></label><br>
+    <label>Расчётный счёт: <input type="text" name="payment_account" value="<?= htmlspecialchars($doc->payment_account ?? '') ?>"></label><br>
+    <label>Табельный номер: <input type="text" name="tabel_name" value="<?= htmlspecialchars($doc->tabel_name ?? '') ?>"></label><br>
+    <button type="submit">Обновить</button>
+    <a href="/users">Отмена</a>
+</form>
+
+views/site/hello.php
+
+
+    <h2><?= htmlspecialchars($message ?? 'Ваш профиль') ?></h2>
+
+    <p><strong>Фамилия:</strong> <?= htmlspecialchars(app()->auth::user()->last_name ?? '—') ?></p>
+    <p><strong>Имя:</strong> <?= htmlspecialchars(app()->auth::user()->first_name ?? '—') ?></p>
+    <p><strong>Отчество:</strong> <?= htmlspecialchars(app()->auth::user()->surname ?? '—') ?></p>
+
+    <p>Роль: <?= htmlspecialchars($role->role_name ?? 'не назначена') ?></p>
+    <h2>Ваши документы:</h2>
+    <?php
+    $doc = app()->auth::user()->document; // предполагается связь document()
+    if ($doc): ?>
+        <p><strong>ИНН:</strong> <?= htmlspecialchars($doc->inn ?? '—') ?></p>
+        <p><strong>СНИЛС:</strong> <?= htmlspecialchars($doc->snils ?? '—') ?></p>
+        <p><strong>Расчетный счет:</strong> <?= htmlspecialchars($doc->payment_account ?? '—') ?></p>
+        <p><strong>Табельный номер:</strong> <?= htmlspecialchars($doc->tabel_name ?? '—') ?></p>
+    <?php else: ?>
+        <p>Документы не заполнены.</p>
+    <?php endif; ?>
+
+    <a href="<?= app()->route->getUrl('/edit') ?>" class="edit-link">Редактировать документы</a>
+
+views/site/login.php
+
+<h2>Авторизация</h2>
+<h3><?= $message ?? ''; ?></h3>
+
+<h3><?= app()->auth->user()->first_name ?? ''; ?></h3>
+<?php
+if (!app()->auth::check()):
+    ?>
+    <form method="post">
+        <label>Логин <input type="text" name="login"></label>
+        <label>Пароль <input type="password" name="password"></label>
+        <button>Войти</button>
+    </form>
+<?php endif;
+
+views/site/positions.php
+
+
+    <h1>Должности</h1>
+    <a href="<?= app()->route->getUrl('/create_position') ?>" class="btn">+ Добавить должность</a>
+    <table border="1">
+        <thead>
+        <tr><th>ID</th><th>Оклад</th><th>Надбавка</th><th>Действия</th></tr>
+        </thead>
+        <tbody>
+        <?php foreach ($positions as $pos): ?>
+            <tr>
+                <td><?= $pos->position_id ?></td>
+                <td><?= $pos->base_salary ?></td>
+                <td>
+                    <?php
+                    $allowance = $pos->positionAllowance->allowance ?? null;
+                    echo $allowance ? htmlspecialchars($allowance->name_allowance) . ' (' . $allowance->precent_allowance . ')' : '—';
+                    ?>
+                </td>
+                <td>
+                    <a href="<?= app()->route->getUrl('/edit_position') ?>?id=<?= $pos->position_id ?>">Ред.</a>
+                    <form action="<?= app()->route->getUrl('/delete') ?>" method="POST" style="display:inline;">
+                        <input type="hidden" name="id" value="<?= $pos->position_id ?>">
+                        <button type="submit" onclick="return confirm('Удалить?')">Уд</button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php
+$content = ob_get_clean();
+include __DIR__ . '/../layouts/main.php';
+?>
+
+views/site/post.php
+
+<h1>Список статей</h1>
+<ol>
+    <?php
+    foreach ($posts as $post) {
+        echo '<li>' . $post->title . '</li>';
+    }
+    ?>
+</ol>
+
+views/site/profile.php
+
+
+<h2><?= htmlspecialchars($message ?? 'Ваш профиль') ?></h2>
+
+<p><strong>Фамилия:</strong> <?= htmlspecialchars(app()->auth::user()->last_name ?? '—') ?></p>
+<p><strong>Имя:</strong> <?= htmlspecialchars(app()->auth::user()->first_name ?? '—') ?></p>
+<p><strong>Отчество:</strong> <?= htmlspecialchars(app()->auth::user()->surname ?? '—') ?></p>
+
+<h2>Ваши документы:</h2>
+<?php
+$doc = app()->auth::user()->document; // предполагается связь document()
+if ($doc): ?>
+    <p><strong>ИНН:</strong> <?= htmlspecialchars($doc->inn ?? '—') ?></p>
+    <p><strong>СНИЛС:</strong> <?= htmlspecialchars($doc->snils ?? '—') ?></p>
+    <p><strong>Расчетный счет:</strong> <?= htmlspecialchars($doc->payment_account ?? '—') ?></p>
+    <p><strong>Табельный номер:</strong> <?= htmlspecialchars($doc->tabel_name ?? '—') ?></p>
+<?php else: ?>
+    <p>Документы не заполнены.</p>
+<?php endif; ?>
+
+<a href="<?= app()->route->getUrl('/edit') ?>" class="edit-link">Редактировать документы</a>
+
+views/site/signup.php
+
+<h2>Регистрация нового пользователя</h2>
+<h3><?= $message ?? ''; ?></h3>
+<form method="post">
+    <label>Фамилия <input type="text" name="last_name"></label><br>
+    <label>Имя <input type="text" name="first_name"></label><br>
+    <label>Отчество <input type="text" name="surname"></label><br>
+
+    <label>Логин <input type="text" name="login"></label><br>
+    <label>Пароль <input type="password" name="password"></label><br>
+
+    <input type="text" name="inn" placeholder="ИНН">
+    <input type="text" name="snils" placeholder="СНИЛС">
+    <input type="text" name="payment_account" placeholder="Расчётный счёт">
+    <input type="text" name="tabel_name" placeholder="Табельный номер">
+    <button>Зарегистрироваться</button>
+</form>
+
+views/site/users.php
+
+<h1>Список пользователей</h1>
+<a href="<?= app()->route->getUrl('/users/create_users') ?>">Добавить</a>
+<table border="1">
+    <tr><th>ID</th><th>Логин</th><th>Имя</th><th>Действия</th></tr>
+    <?php foreach ($users as $user): ?>
+        <tr>
+            <td><?= $user->id ?></td>
+            <td><?= htmlspecialchars($user->login) ?></td>
+            <td><?= htmlspecialchars($user->first_name) ?></td>
+            <td>
+                <a href="<?= app()->route->getUrl('/users/edit_users') ?>?id=<?= $user->id ?>">Ред.</a>
+                <a href="<?= app()->route->getUrl('/users/delete') ?>?id=<?= $user->id ?>" onclick="return confirm('Удалить?')">Уд.</a>
+            </td>
+        </tr>
+    <?php endforeach; ?>
+</table>
+
+.htaccess
+
+<IfModule mod_rewrite.c>
+    RewriteEngine on
+    RewriteRule ^(.*)$ public/$1 [l]
+</IfModule>
+
+composer.json
+
+{
+    "name": "damerlan17/php-practical",
+    "description": "qwer",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "damerlan17",
+            "email": "uchunakdamerlan@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": "^7.4 | ^8.0",
+        "illuminate/database": "10.x-dev",
+        "illuminate/events": "10.x-dev",
+        "nikic/fast-route": "^2.0@dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Src\\": "core/Src/",
+            "": "app/"
+        }
+
+    }
+}

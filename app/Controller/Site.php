@@ -205,93 +205,94 @@ class Site
         app()->route->redirect('/positions');
     }
 
+    // Список пользователей
     public function users()
     {
-        $users = User::with('role', 'position')->get(); // загружаем связи
+        $users = User::with('role', 'position', 'document')->get();
         return (new View())->render('site.users', ['users' => $users]);
     }
 
-    // Форма создания пользователя
+// Форма создания пользователя
     public function create_users()
     {
         $roles = Role::all();
         $positions = Position::all();
-        // Документы не нужны – они создаются автоматически при сохранении
         return (new View())->render('site.create_user', [
             'roles' => $roles,
             'positions' => $positions
         ]);
     }
 
-    // Сохранение нового пользователя
+// Сохранение нового пользователя
     public function storeUsers(Request $request)
     {
-        // Валидация (простая)
+        $data = $request->all(); // получаем все данные
+
+        // Валидация
         $errors = [];
-        if (empty($request->login)) {
+        if (empty($data['login'])) {
             $errors['login'] = 'Логин обязателен';
-        } elseif (User::where('login', $request->login)->exists()) {
+        } elseif (User::where('login', $data['login'])->exists()) {
             $errors['login'] = 'Такой логин уже используется';
         }
-        if (empty($request->password)) {
+        if (empty($data['password'])) {
             $errors['password'] = 'Пароль обязателен';
         }
-        if (empty($request->first_name)) {
+        if (empty($data['first_name'])) {
             $errors['first_name'] = 'Имя обязательно';
         }
 
-        $doc = Document::create([
-            'inn' => $request->inn,
-            'snils' => $request->snils,
-            'payment_account' => $request->payment_account,
-            'tabel_name' => $request->tabel_name,
-        ]);
-
-        // Создаём пользователя с привязкой к документу
-        $user = User::create([
-            'last_name' => $request->last_name,
-            'first_name' => $request->first_name,
-            'surname' => $request->surname,
-            'login' => $request->login,
-            'password' => $request->password,
-            'document_id' => $doc->document_id,
-            'role_id' => 2,
-        ]);
-
         if (!empty($errors)) {
             return (new View())->render('site.create_user', [
-                'errors' => $errors,
-                'old' => (array)$request,
-                'roles' => Role::all(),
-                'positions' => Position::all(),
-                'documents' => Document::all()
+                'errors'    => $errors,
+                'old'       => $data,
+                'roles'     => Role::all(),
+                'positions' => Position::all()
             ]);
         }
 
-        $data = $request->all();
-        User::create($data);
+        // Создаём документ
+        $doc = Document::create([
+            'inn'            => $data['inn'] ?? null,
+            'snils'          => $data['snils'] ?? null,
+            'payment_account'=> $data['payment_account'] ?? null,
+            'tabel_name'     => $data['tabel_name'] ?? null,
+        ]);
+
+        $position_id = !empty($request->position_id) ? $request->position_id : null;
+
+        // Создаём пользователя (хешируем пароль)
+        $user = User::create([
+            'last_name'   => $data['last_name'] ?? null,
+            'first_name'  => $data['first_name'],
+            'surname'     => $data['surname'] ?? null,
+            'login'       => $data['login'],
+            'password'    => md5($data['password']),
+            'document_id' => $doc->document_id,
+            'role_id'     => $data['role_id'] ?? 2,
+            'position_id' => $position_id,
+        ]);
 
         app()->route->redirect('/users');
     }
 
-    // Форма редактирования пользователя
+// Форма редактирования пользователя
     public function edit_users(Request $request)
     {
-        $user = User::with('document')->find($request->id);
+        $user = User::with('document', 'role', 'position')->find($request->id);
         if (!$user) {
             app()->route->redirect('/users');
         }
         $roles = Role::all();
         $positions = Position::all();
         return (new View())->render('site.edit_users', [
-            'editUser' => $user,
-            'roles' => $roles,
+            'editUser'  => $user,
+            'roles'     => $roles,
             'positions' => $positions
         ]);
     }
 
-
-    // Обновление пользователя
+// Обновление пользователя
     public function updateUsers(Request $request)
     {
         $user = User::find($request->id);
@@ -308,43 +309,42 @@ class Site
 
         if (!empty($errors)) {
             return (new View())->render('site.edit_users', [
-                'editUser' => $user,
-                'errors' => $errors,
-                'roles' => Role::all(),
+                'editUser'  => $user,
+                'errors'    => $errors,
+                'roles'     => Role::all(),
                 'positions' => Position::all()
             ]);
         }
 
         // Обновляем основные поля
-        $user->last_name = $request->last_name;
+        $user->last_name  = $request->last_name;
         $user->first_name = $request->first_name;
-        $user->surname = $request->surname;
-        $user->login = $request->login;
+        $user->surname    = $request->surname;
+        $user->login      = $request->login;
 
-        // Хэшируем пароль только если он передан
         if (!empty($request->password)) {
             $user->password = md5($request->password);
         }
 
-        $user->role_id = $request->role_id;
+        $user->role_id    = $request->role_id;
         $user->position_id = $request->position_id ?: null;
         $user->save();
 
-        // Обновляем документ
+        // Обновляем связанный документ
         if ($user->document) {
             $user->document->update([
-                'inn' => $request->inn,
-                'snils' => $request->snils,
-                'payment_account' => $request->payment_account,
-                'tabel_name' => $request->tabel_name
+                'inn'            => $request->inn,
+                'snils'          => $request->snils,
+                'payment_account'=> $request->payment_account,
+                'tabel_name'     => $request->tabel_name,
             ]);
         } else {
             // Если документа нет – создаём
             $doc = Document::create([
-                'inn' => $request->inn,
-                'snils' => $request->snils,
-                'payment_account' => $request->payment_account,
-                'tabel_name' => $request->tabel_name
+                'inn'            => $request->inn,
+                'snils'          => $request->snils,
+                'payment_account'=> $request->payment_account,
+                'tabel_name'     => $request->tabel_name,
             ]);
             $user->document_id = $doc->document_id;
             $user->save();
@@ -353,31 +353,271 @@ class Site
         app()->route->redirect('/users');
     }
 
+// Удаление пользователя
     public function deleteUsers(Request $request)
     {
-        $currentUser = app()->auth::user();
         $user = User::find($request->id);
-
-        if ($user && $user->id !== $currentUser->id) {
-            $docId = $user->document_id;
-
-            // 1. Отвязываем документ от пользователя
-            if ($docId) {
+        if ($user) {
+            // Отвязываем и удаляем документ
+            if ($user->document_id) {
+                $docId = $user->document_id;
                 $user->document_id = null;
                 $user->save();
-            }
-
-            // 2. Удаляем документ (если был)
-            if ($docId) {
                 Document::destroy($docId);
             }
-
-            // 3. Удаляем пользователя
             $user->delete();
         }
         app()->route->redirect('/users');
     }
 
+    // Список начислений
+    public function allowances()
+    {
+        $allowances = Allowance::all();
+        return (new View())->render('site.allowances', ['allowances' => $allowances]);
+    }
 
+// Форма создания начисления
+    public function create_allowance()
+    {
+        return (new View())->render('site.create_allowance');
+    }
+
+// Сохранение начисления
+    public function storeAllowance(Request $request)
+    {
+        $errors = [];
+        if (empty($request->name_allowance)) {
+            $errors['name_allowance'] = 'Название начисления обязательно';
+        }
+        if (empty($request->precent_allowance) && !is_numeric($request->precent_allowance)) {
+            $errors['precent_allowance'] = 'Процент надбавки обязателен и должен быть числом';
+        }
+
+        if (!empty($errors)) {
+            return (new View())->render('site.create_allowance', [
+                'errors' => $errors,
+                'old' => (array)$request
+            ]);
+        }
+
+        Allowance::create([
+            'name_allowance' => $request->name_allowance,
+            'precent_allowance' => $request->precent_allowance,
+        ]);
+
+        app()->route->redirect('/allowances');
+    }
+
+// Форма редактирования начисления
+    public function edit_allowance(Request $request)
+    {
+        $allowance = Allowance::find($request->id);
+        if (!$allowance) {
+            app()->route->redirect('/allowances');
+        }
+        return (new View())->render('site.edit_allowance', ['allowance' => $allowance]);
+    }
+
+// Обновление начисления
+    public function updateAllowance(Request $request)
+    {
+        $allowance = Allowance::find($request->id);
+        if (!$allowance) {
+            app()->route->redirect('/allowances');
+        }
+
+        $errors = [];
+        if (empty($request->name_allowance)) {
+            $errors['name_allowance'] = 'Название начисления обязательно';
+        }
+        if (empty($request->precent_allowance) && !is_numeric($request->precent_allowance)) {
+            $errors['precent_allowance'] = 'Процент надбавки обязателен и должен быть числом';
+        }
+
+        if (!empty($errors)) {
+            return (new View())->render('site.edit_allowance', [
+                'errors' => $errors,
+                'allowance' => $allowance
+            ]);
+        }
+
+        $allowance->update([
+            'name_allowance' => $request->name_allowance,
+            'precent_allowance' => $request->precent_allowance,
+        ]);
+
+        app()->route->redirect('/allowances');
+    }
+
+// Удаление начисления
+    public function deleteAllowance(Request $request)
+    {
+        $allowance = Allowance::find($request->id);
+        if ($allowance) {
+            $allowance->delete();
+        }
+        app()->route->redirect('/allowances');
+    }
+
+    // Список вычетов
+    public function deductions()
+    {
+        $deductions = Deduction::all();
+        return (new View())->render('site.deductions', ['deductions' => $deductions]);
+    }
+
+// Форма создания вычета
+    public function create_deduction()
+    {
+        return (new View())->render('site.create_deduction');
+    }
+
+// Сохранение вычета
+    public function storeDeduction(Request $request)
+    {
+        $errors = [];
+        if (empty($request->deduction_name)) {
+            $errors['deduction_name'] = 'Название вычета обязательно';
+        }
+        if (empty($request->amount_deduction) && !is_numeric($request->amount_deduction)) {
+            $errors['amount_deduction'] = 'Сумма вычета обязательна и должна быть числом';
+        }
+
+        if (!empty($errors)) {
+            return (new View())->render('site.create_deduction', [
+                'errors' => $errors,
+                'old' => (array)$request
+            ]);
+        }
+
+        Deduction::create([
+            'deduction_name' => $request->deduction_name,
+            'amount_deduction' => $request->amount_deduction,
+        ]);
+
+        app()->route->redirect('/deductions');
+    }
+
+// Форма редактирования вычета
+    public function edit_deduction(Request $request)
+    {
+        $deduction = Deduction::find($request->id);
+        if (!$deduction) {
+            app()->route->redirect('/deductions');
+        }
+        return (new View())->render('site.edit_deduction', ['deduction' => $deduction]);
+    }
+
+// Обновление вычета
+    public function updateDeduction(Request $request)
+    {
+        $deduction = Deduction::find($request->id);
+        if (!$deduction) {
+            app()->route->redirect('/deductions');
+        }
+
+        $errors = [];
+        if (empty($request->deduction_name)) {
+            $errors['deduction_name'] = 'Название вычета обязательно';
+        }
+        if (empty($request->amount_deduction) && !is_numeric($request->amount_deduction)) {
+            $errors['amount_deduction'] = 'Сумма вычета обязательна и должна быть числом';
+        }
+
+        if (!empty($errors)) {
+            return (new View())->render('site.edit_deduction', [
+                'errors' => $errors,
+                'deduction' => $deduction
+            ]);
+        }
+
+        $deduction->update([
+            'deduction_name' => $request->deduction_name,
+            'amount_deduction' => $request->amount_deduction,
+        ]);
+
+        app()->route->redirect('/deductions');
+    }
+
+// Удаление вычета
+    public function deleteDeduction(Request $request)
+    {
+        $deduction = Deduction::find($request->id);
+        if ($deduction) {
+            $deduction->delete();
+        }
+        app()->route->redirect('/deductions');
+    }
+
+    public function calculatePayroll(Request $request)
+    {
+        if ($request->method === 'POST') {
+            $month = $request->month; // формат YYYY-MM
+            $users = User::with('position.positionAllowance.allowance', 'deductions')->get();
+
+            foreach ($users as $user) {
+                // Базовый оклад из должности
+                $baseSalary = $user->position ? $user->position->base_salary : 0;
+
+                // Надбавка (процент от оклада)
+                $allowancePercent = 0;
+                if ($user->position && $user->position->positionAllowance && $user->position->positionAllowance->allowance) {
+                    $allowancePercent = $user->position->positionAllowance->allowance->precent_allowance;
+                }
+                $allowanceAmount = $baseSalary * $allowancePercent / 100;
+
+                // Сумма вычетов
+                $totalDeductions = $user->deductions->sum('amount_deduction');
+
+                $totalAccrued = $baseSalary + $allowanceAmount;
+                $finalSum = $totalAccrued - $totalDeductions;
+
+                // Сохраняем отчёт
+                PayrollReport::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'date_report' => $month . '-01', // первое число месяца
+                    ],
+                    [
+                        'total_accued' => $totalAccrued,
+                        'total_deducted' => $totalDeductions,
+                        'final_sum' => $finalSum,
+                    ]
+                );
+            }
+
+            app()->route->redirect('/payroll/reports');
+        }
+
+        return (new View())->render('site.calculate_payroll');
+    }
+
+    public function payrollReports()
+    {
+        // Группировка по должностям (или можно по отделам, но у вас отделов нет, используем должности)
+        $reports = PayrollReport::with('user.position')
+            ->selectRaw('position_id, AVG(final_sum) as avg_salary, DATE_FORMAT(date_report, "%Y-%m") as month')
+            ->join('users', 'payroll_reports.user_id', '=', 'users.id')
+            ->groupBy('position_id', 'month')
+            ->orderBy('month', 'desc')
+            ->get();
+
+        return (new View())->render('site.payroll_reports', ['reports' => $reports]);
+    }
+
+    public function payslip(Request $request)
+    {
+        $user = User::find($request->id);
+        if (!$user) {
+            app()->route->redirect('/users');
+        }
+        $month = $request->month ?? date('Y-m');
+        $report = PayrollReport::where('user_id', $user->id)
+            ->where('date_report', 'like', $month . '%')
+            ->first();
+
+        return (new View())->render('site.payslip', ['user' => $user, 'report' => $report, 'month' => $month]);
+    }
 
 }
