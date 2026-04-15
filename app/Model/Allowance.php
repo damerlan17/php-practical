@@ -10,7 +10,9 @@ class Allowance extends Model
     use HasFactory;
 
     public $timestamps = false;
+
     protected $table = 'allowances';
+    protected $primaryKey = 'allowance_id';
     protected $fillable = [
         'name_allowance',
         'precent_allowance'

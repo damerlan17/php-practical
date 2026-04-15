@@ -38,10 +38,12 @@ Route::add('GET', '/allowances/delete', [Controller\Site::class, 'deleteAllowanc
 // Вычеты
 Route::add('GET', '/deductions', [Controller\Site::class, 'deductions']);
 Route::add('GET', '/deductions/create', [Controller\Site::class, 'create_deduction']);
-Route::add('POST', '/deductions/store', [Controller\Site::class, 'storeDeduction']);
+
 Route::add('GET', '/deductions/edit', [Controller\Site::class, 'edit_deduction']);
 Route::add('POST', '/deductions/update', [Controller\Site::class, 'updateDeduction']);
 Route::add('GET', '/deductions/delete', [Controller\Site::class, 'deleteDeduction']);
+Route::add('POST', '/deductions/store', [Controller\Site::class, 'storeDeduction']);
+
 
 Route::add(['GET', 'POST'], '/payroll/calculate', [Controller\Site::class, 'calculatePayroll']);
 Route::add('GET', '/payroll/reports', [Controller\Site::class, 'payrollReports']);

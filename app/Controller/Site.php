@@ -9,10 +9,10 @@ use Src\Request;
 use Model\User;
 use Src\Auth\Auth;
 use Model\Document;
-
 use Model\Position;
 use Model\Allowance;
 use Model\PositionAllowance;
+use Model\Deduction;
 
 
 class Site
@@ -371,6 +371,7 @@ class Site
     }
 
     // Список начислений
+    // Список начислений
     public function allowances()
     {
         $allowances = Allowance::all();
@@ -386,24 +387,10 @@ class Site
 // Сохранение начисления
     public function storeAllowance(Request $request)
     {
-        $errors = [];
-        if (empty($request->name_allowance)) {
-            $errors['name_allowance'] = 'Название начисления обязательно';
-        }
-        if (empty($request->precent_allowance) && !is_numeric($request->precent_allowance)) {
-            $errors['precent_allowance'] = 'Процент надбавки обязателен и должен быть числом';
-        }
-
-        if (!empty($errors)) {
-            return (new View())->render('site.create_allowance', [
-                'errors' => $errors,
-                'old' => (array)$request
-            ]);
-        }
 
         Allowance::create([
-            'name_allowance' => $request->name_allowance,
-            'precent_allowance' => $request->precent_allowance,
+        'name_allowance' => $request->name_allowance,
+        'precent_allowance' => $request->precent_allowance,
         ]);
 
         app()->route->redirect('/allowances');
@@ -427,21 +414,6 @@ class Site
             app()->route->redirect('/allowances');
         }
 
-        $errors = [];
-        if (empty($request->name_allowance)) {
-            $errors['name_allowance'] = 'Название начисления обязательно';
-        }
-        if (empty($request->precent_allowance) && !is_numeric($request->precent_allowance)) {
-            $errors['precent_allowance'] = 'Процент надбавки обязателен и должен быть числом';
-        }
-
-        if (!empty($errors)) {
-            return (new View())->render('site.edit_allowance', [
-                'errors' => $errors,
-                'allowance' => $allowance
-            ]);
-        }
-
         $allowance->update([
             'name_allowance' => $request->name_allowance,
             'precent_allowance' => $request->precent_allowance,
@@ -449,6 +421,7 @@ class Site
 
         app()->route->redirect('/allowances');
     }
+
 
 // Удаление начисления
     public function deleteAllowance(Request $request)
@@ -459,7 +432,6 @@ class Site
         }
         app()->route->redirect('/allowances');
     }
-
     // Список вычетов
     public function deductions()
     {
@@ -474,6 +446,7 @@ class Site
     }
 
 // Сохранение вычета
+    // Сохранение
     public function storeDeduction(Request $request)
     {
         $errors = [];
@@ -499,17 +472,7 @@ class Site
         app()->route->redirect('/deductions');
     }
 
-// Форма редактирования вычета
-    public function edit_deduction(Request $request)
-    {
-        $deduction = Deduction::find($request->id);
-        if (!$deduction) {
-            app()->route->redirect('/deductions');
-        }
-        return (new View())->render('site.edit_deduction', ['deduction' => $deduction]);
-    }
-
-// Обновление вычета
+// Обновление
     public function updateDeduction(Request $request)
     {
         $deduction = Deduction::find($request->id);
@@ -539,6 +502,17 @@ class Site
 
         app()->route->redirect('/deductions');
     }
+
+// Форма редактирования вычета
+    public function edit_deduction(Request $request)
+    {
+        $deduction = Deduction::find($request->id);
+        if (!$deduction) {
+            app()->route->redirect('/deductions');
+        }
+        return (new View())->render('site.edit_deduction', ['deduction' => $deduction]);
+    }
+
 
 // Удаление вычета
     public function deleteDeduction(Request $request)
