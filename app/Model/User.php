@@ -57,9 +57,10 @@ class User extends Model implements IdentityInterface
     }
 
     // Связь с удержанием
-    public function deduction()
+// Связь с вычетами (многие ко многим)
+    public function deductions()
     {
-        return $this->belongsTo(Deduction::class, 'deduction_id', 'deduction_id');
+        return $this->belongsToMany(Deduction::class, 'user_deductions', 'user_id', 'deduction_id');
     }
 
     // Связь с документами
@@ -76,10 +77,5 @@ class User extends Model implements IdentityInterface
     public function role()
     {
         return $this->belongsTo(Role::class, 'role_id', 'role_id');
-    }
-
-    public function deductions()
-    {
-        return $this->belongsToMany(Deduction::class, 'user_deductions', 'user_id', 'deduction_id');
     }
 }

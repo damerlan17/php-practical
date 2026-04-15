@@ -13,6 +13,7 @@ use Model\Position;
 use Model\Allowance;
 use Model\PositionAllowance;
 use Model\Deduction;
+use Model\PayrollReport;
 
 
 class Site
@@ -449,14 +450,16 @@ class Site
     // Сохранение
     public function storeDeduction(Request $request)
     {
+        // Валидация
         $errors = [];
-        if (empty($request->deduction_name)) {
+        if (trim($request->deduction_name) === '') {
             $errors['deduction_name'] = 'Название вычета обязательно';
         }
-        if (empty($request->amount_deduction) && !is_numeric($request->amount_deduction)) {
+        if (!is_numeric($request->amount_deduction)) {
             $errors['amount_deduction'] = 'Сумма вычета обязательна и должна быть числом';
         }
 
+        // Если есть ошибки – возвращаем форму с ошибками и старыми данными
         if (!empty($errors)) {
             return (new View())->render('site.create_deduction', [
                 'errors' => $errors,
@@ -464,30 +467,35 @@ class Site
             ]);
         }
 
-        Deduction::create([
-            'deduction_name' => $request->deduction_name,
-            'amount_deduction' => $request->amount_deduction,
-        ]);
+        // Сохраняем
+        $deduction = new Deduction();
+        $deduction->deduction_name = $request->deduction_name;
+        $deduction->amount_deduction = $request->amount_deduction;
+        $deduction->save();
 
+        // Редирект на список
         app()->route->redirect('/deductions');
     }
 
 // Обновление
     public function updateDeduction(Request $request)
     {
+        // Находим вычет
         $deduction = Deduction::find($request->id);
         if (!$deduction) {
             app()->route->redirect('/deductions');
         }
 
+        // Валидация
         $errors = [];
-        if (empty($request->deduction_name)) {
+        if (trim($request->deduction_name) === '') {
             $errors['deduction_name'] = 'Название вычета обязательно';
         }
-        if (empty($request->amount_deduction) && !is_numeric($request->amount_deduction)) {
+        if (!is_numeric($request->amount_deduction)) {
             $errors['amount_deduction'] = 'Сумма вычета обязательна и должна быть числом';
         }
 
+        // Если есть ошибки – возвращаем форму с ошибками
         if (!empty($errors)) {
             return (new View())->render('site.edit_deduction', [
                 'errors' => $errors,
@@ -495,11 +503,12 @@ class Site
             ]);
         }
 
-        $deduction->update([
-            'deduction_name' => $request->deduction_name,
-            'amount_deduction' => $request->amount_deduction,
-        ]);
+        // Обновляем поля
+        $deduction->deduction_name = $request->deduction_name;
+        $deduction->amount_deduction = $request->amount_deduction;
+        $deduction->save();
 
+        // Редирект на список
         app()->route->redirect('/deductions');
     }
 
@@ -531,7 +540,7 @@ class Site
             $users = User::with('position.positionAllowance.allowance', 'deductions')->get();
 
             foreach ($users as $user) {
-                // Базовый оклад из должности
+                // Базовый оклад
                 $baseSalary = $user->position ? $user->position->base_salary : 0;
 
                 // Надбавка (процент от оклада)
@@ -547,11 +556,11 @@ class Site
                 $totalAccrued = $baseSalary + $allowanceAmount;
                 $finalSum = $totalAccrued - $totalDeductions;
 
-                // Сохраняем отчёт
+                // Сохраняем или обновляем отчёт
                 PayrollReport::updateOrCreate(
                     [
                         'user_id' => $user->id,
-                        'date_report' => $month . '-01', // первое число месяца
+                        'date_report' => $month . '-01',
                     ],
                     [
                         'total_accued' => $totalAccrued,
@@ -569,29 +578,28 @@ class Site
 
     public function payrollReports()
     {
-        // Группировка по должностям (или можно по отделам, но у вас отделов нет, используем должности)
         $reports = PayrollReport::with('user.position')
-            ->selectRaw('position_id, AVG(final_sum) as avg_salary, DATE_FORMAT(date_report, "%Y-%m") as month')
+            ->selectRaw('users.position_id, AVG(payroll_reports.final_sum) as avg_salary, DATE_FORMAT(payroll_reports.date_report, "%Y-%m") as month')
             ->join('users', 'payroll_reports.user_id', '=', 'users.id')
-            ->groupBy('position_id', 'month')
+            ->groupBy('users.position_id', 'month')
             ->orderBy('month', 'desc')
             ->get();
+
+        // Добавляем понятное название должности
+        $reports = $reports->map(function ($report) {
+            if ($report->position_id) {
+                $position = \Model\Position::find($report->position_id);
+                $report->position_title = $position->title ?? 'Должность #' . $report->position_id;
+            }
+            return $report;
+        });
 
         return (new View())->render('site.payroll_reports', ['reports' => $reports]);
     }
 
-    public function payslip(Request $request)
+    public function clearReports()
     {
-        $user = User::find($request->id);
-        if (!$user) {
-            app()->route->redirect('/users');
-        }
-        $month = $request->month ?? date('Y-m');
-        $report = PayrollReport::where('user_id', $user->id)
-            ->where('date_report', 'like', $month . '%')
-            ->first();
-
-        return (new View())->render('site.payslip', ['user' => $user, 'report' => $report, 'month' => $month]);
+        PayrollReport::truncate();   // удаляем все записи
+        app()->route->redirect('/payroll/reports');
     }
-
 }

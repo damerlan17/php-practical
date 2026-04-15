@@ -11,6 +11,7 @@ class PayrollReport extends Model
 
     public $timestamps = false;
     protected $table = 'payroll_reports';
+    protected $primaryKey = 'repot_id';
     protected $fillable = [
         'user_id',
         'date_report',
