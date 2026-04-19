@@ -1,49 +1,45 @@
 <?php
 
+use Controller\Site;
 use Src\Route;
 
-Route::add('GET', '/hello', [Controller\Site::class, 'hello'])
-    ->middleware('auth');
-Route::add(['GET', 'POST'], '/signup', [Controller\Site::class, 'signup']);
-Route::add(['GET', 'POST'], '/login', [Controller\Site::class, 'login']);
-Route::add('GET', '/logout', [Controller\Site::class, 'logout']);
+// ========== Публичные маршруты ==========
+Route::add(['GET', 'POST'], '/login', [Site::class, 'login']);
+Route::add(['GET', 'POST'], '/signup', [Site::class, 'signup']);
+Route::add('GET', '/hello', [Site::class, 'hello'])->middleware('auth');
+Route::add('GET', '/logout', [Site::class, 'logout'])->middleware('auth');
+Route::add(['GET', 'POST'], '/edit', [Site::class, 'edit'])->middleware('auth');
 
-Route::add(['GET', 'POST'], '/edit', [Controller\Site::class, 'edit']);
+// ========== Маршруты только для администратора ==========
+Route::add('GET', '/users', [Site::class, 'users'])->middleware('auth', 'role:admin');
+Route::add('GET', '/users/create', [Site::class, 'create_users'])->middleware('auth', 'role:admin');
+Route::add('POST', '/users/store', [Site::class, 'storeUsers'])->middleware('auth', 'role:admin');
+Route::add('GET', '/users/edit', [Site::class, 'edit_users'])->middleware('auth', 'role:admin');
+Route::add('POST', '/users/update', [Site::class, 'updateUsers'])->middleware('auth', 'role:admin');
+Route::add('GET', '/users/delete', [Site::class, 'deleteUsers'])->middleware('auth', 'role:admin');
 
-Route::add('GET', '/positions', [Controller\Site::class, 'positions']);
-Route::add('GET', '/create_position', [Controller\Site::class, 'create_position']);
-Route::add('GET', '/edit_position', [Controller\Site::class, 'edit_position']);
-Route::add('POST', '/update', [Controller\Site::class, 'updatePosition']);
-Route::add('POST', '/delete', [Controller\Site::class, 'deletePosition']);
-Route::add('POST', '/stored', [Controller\Site::class, 'storePosition']);
+Route::add('GET', '/positions', [Site::class, 'positions'])->middleware('auth', 'role:admin');
+Route::add('GET', '/positions/create', [Site::class, 'create_position'])->middleware('auth', 'role:admin');
+Route::add('POST', '/positions/store', [Site::class, 'storePosition'])->middleware('auth', 'role:admin');
+Route::add('GET', '/positions/edit', [Site::class, 'edit_position'])->middleware('auth', 'role:admin');
+Route::add('POST', '/positions/update', [Site::class, 'updatePosition'])->middleware('auth', 'role:admin');
+Route::add('GET', '/positions/delete', [Site::class, 'deletePosition'])->middleware('auth', 'role:admin');
 
+Route::add('GET', '/allowances', [Site::class, 'allowances'])->middleware('auth', 'role:admin');
+Route::add('GET', '/allowances/create', [Site::class, 'create_allowance'])->middleware('auth', 'role:admin');
+Route::add('POST', '/allowances/store', [Site::class, 'storeAllowance'])->middleware('auth', 'role:admin');
+Route::add('GET', '/allowances/edit', [Site::class, 'edit_allowance'])->middleware('auth', 'role:admin');
+Route::add('POST', '/allowances/update', [Site::class, 'updateAllowance'])->middleware('auth', 'role:admin');
+Route::add('GET', '/allowances/delete', [Site::class, 'deleteAllowance'])->middleware('auth', 'role:admin');
 
-// Управление пользователями
+Route::add('GET', '/deductions', [Site::class, 'deductions'])->middleware('auth', 'role:admin');
+Route::add('GET', '/deductions/create', [Site::class, 'create_deduction'])->middleware('auth', 'role:admin');
+Route::add('POST', '/deductions/store', [Site::class, 'storeDeduction'])->middleware('auth', 'role:admin');
+Route::add('GET', '/deductions/edit', [Site::class, 'edit_deduction'])->middleware('auth', 'role:admin');
+Route::add('POST', '/deductions/update', [Site::class, 'updateDeduction'])->middleware('auth', 'role:admin');
+Route::add('GET', '/deductions/delete', [Site::class, 'deleteDeduction'])->middleware('auth', 'role:admin');
 
-Route::add('GET', '/users', [Controller\Site::class, 'users']);
-Route::add('GET', '/users/create', [Controller\Site::class, 'create_users']);
-Route::add('POST', '/users/store', [Controller\Site::class, 'storeUsers']);
-Route::add('GET', '/users/edit', [Controller\Site::class, 'edit_users']);
-Route::add('POST', '/users/update', [Controller\Site::class, 'updateUsers']);
-Route::add('GET', '/users/delete', [Controller\Site::class, 'deleteUsers']);
-
-// Начисления
-Route::add('GET', '/allowances', [Controller\Site::class, 'allowances']);
-Route::add('GET', '/allowances/create', [Controller\Site::class, 'create_allowance']);
-Route::add('POST', '/allowances/store', [Controller\Site::class, 'storeAllowance']);
-Route::add('GET', '/allowances/edit', [Controller\Site::class, 'edit_allowance']);
-Route::add('POST', '/allowances/update', [Controller\Site::class, 'updateAllowance']);
-Route::add('GET', '/allowances/delete', [Controller\Site::class, 'deleteAllowance']);
-
-// Вычеты
-Route::add('GET', '/deductions', [Controller\Site::class, 'deductions']);
-Route::add('GET', '/deductions/create', [Controller\Site::class, 'create_deduction']);
-Route::add('GET', '/deductions/edit', [Controller\Site::class, 'edit_deduction']);
-Route::add('GET', '/deductions/delete', [Controller\Site::class, 'deleteDeduction']);
-Route::add('POST', '/deductions/store', [Controller\Site::class, 'storeDeduction']);
-Route::add('POST', '/deductions/update', [Controller\Site::class, 'updateDeduction']);
-
-Route::add(['GET', 'POST'], '/payroll/calculate', [Controller\Site::class, 'calculatePayroll']);
-Route::add('GET', '/payroll/reports', [Controller\Site::class, 'payrollReports']);
-Route::add('GET', '/payslip', [Controller\Site::class, 'payslip']);
-Route::add('GET', '/payroll/clear', [Controller\Site::class, 'clearReports']);
+// ========== Маршруты для администратора и бухгалтера ==========
+Route::add(['GET', 'POST'], '/payroll/calculate', [Site::class, 'calculatePayroll'])->middleware('auth');
+Route::add('GET', '/payroll/reports', [Site::class, 'payrollReports'])->middleware('auth');
+Route::add('GET', '/payroll/clear', [Site::class, 'clearReports'])->middleware('auth', 'role:admin');

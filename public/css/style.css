@@ -173,3 +173,41 @@ input:focus, select:focus {
     margin-bottom: 1rem;
     box-shadow: 0 1px 3px rgb(0,0,0);
 }
+
+/* Карточки профиля */
+.profile-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.profile-card h2 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.profile-card h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-left: 4px solid #3498db;
+    padding-left: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.profile-card p {
+    margin: 0.5rem 0;
+}
+
+.profile-card ul {
+    margin: 0.5rem 0 0 1.5rem;
+}
+
+.profile-card .btn {
+    margin-right: 0.5rem;
+    margin-top: 0.5rem;
+}

@@ -8,10 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 class PayrollReport extends Model
 {
     use HasFactory;
-
     public $timestamps = false;
     protected $table = 'payroll_reports';
-    protected $primaryKey = 'repot_id';
+    protected $primaryKey = 'report_id';   // исправлено
     protected $fillable = [
         'user_id',
         'date_report',
@@ -20,7 +19,6 @@ class PayrollReport extends Model
         'final_sum'
     ];
 
-    // Связь с пользователем (принадлежит одному пользователю)
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
