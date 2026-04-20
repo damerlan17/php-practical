@@ -3,7 +3,7 @@ $title = 'Новая должность';
 ob_start();
 ?>
     <h1>Новая должность</h1>
-    <form action="<?= app()->route->getUrl('/stored') ?>" method="POST">
+    <form action="<?= app()->route->getUrl('/positions/stored') ?>" method="POST">
         <label>Базовый оклад:</label>
         <input type="number" step="0.01" name="base_salary" required><br>
         <label>Надбавка:</label>

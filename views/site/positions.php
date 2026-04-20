@@ -1,6 +1,6 @@
 
     <h1>Должности</h1>
-    <a href="<?= app()->route->getUrl('/create_position') ?>" class="btn">+ Добавить должность</a>
+    <a href="<?= app()->route->getUrl('/positions/create_position') ?>">+ Добавить должность</a>
     <table border="1">
         <thead>
         <tr><th>ID</th><th>Оклад</th><th>Надбавка</th><th>Действия</th></tr>
@@ -17,17 +17,10 @@
                     ?>
                 </td>
                 <td>
-                    <a href="<?= app()->route->getUrl('/edit_position') ?>?id=<?= $pos->position_id ?>">Ред.</a>
-                    <form action="<?= app()->route->getUrl('/delete') ?>" method="POST" style="display:inline;">
-                        <input type="hidden" name="id" value="<?= $pos->position_id ?>">
-                        <button type="submit" onclick="return confirm('Удалить?')">Уд</button>
-                    </form>
+                    <a href="<?= app()->route->getUrl('/positions/edit_position') ?>?id=<?= $pos->position_id ?>">Ред.</a>
+                    <a href="<?= app()->route->getUrl('/positions/delete?id=' . $pos->position_id) ?>" onclick="return confirm('Удалить?')">Уд.</a>
                 </td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
-<?php
-$content = ob_get_clean();
-include __DIR__ . '/../layouts/main.php';
-?>

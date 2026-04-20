@@ -19,9 +19,9 @@ Route::add('POST', '/users/update', [Site::class, 'updateUsers'])->middleware('a
 Route::add('GET', '/users/delete', [Site::class, 'deleteUsers'])->middleware('auth', 'role:admin');
 
 Route::add('GET', '/positions', [Site::class, 'positions'])->middleware('auth', 'role:admin');
-Route::add('GET', '/positions/create', [Site::class, 'create_position'])->middleware('auth', 'role:admin');
-Route::add('POST', '/positions/store', [Site::class, 'storePosition'])->middleware('auth', 'role:admin');
-Route::add('GET', '/positions/edit', [Site::class, 'edit_position'])->middleware('auth', 'role:admin');
+Route::add('GET', '/positions/create_position', [Site::class, 'create_position'])->middleware('auth', 'role:admin');
+Route::add('POST', '/positions/stored', [Site::class, 'storePosition'])->middleware('auth', 'role:admin');
+Route::add('GET', '/positions/edit_position', [Site::class, 'edit_position'])->middleware('auth', 'role:admin');
 Route::add('POST', '/positions/update', [Site::class, 'updatePosition'])->middleware('auth', 'role:admin');
 Route::add('GET', '/positions/delete', [Site::class, 'deletePosition'])->middleware('auth', 'role:admin');
 
