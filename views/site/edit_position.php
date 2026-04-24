@@ -4,6 +4,7 @@ ob_start();
 ?>
     <h1>Редактирование должности</h1>
     <form action="<?= app()->route->getUrl('/positions/update') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= app()->auth::generateCSRF() ?>">
         <input type="hidden" name="id" value="<?= $position->position_id ?>">
         <label>Базовый оклад:</label>
         <input type="number" step="0.01" name="base_salary" value="<?= $position->base_salary ?>" required><br>
@@ -19,5 +20,5 @@ ob_start();
             <?php endforeach; ?>
         </select><br>
         <button type="submit">Обновить</button>
-        <a href="/positions">Отмена</a>
+        <a href="<?= app()->route->getUrl('/positions') ?>">Отмена</a>
     </form>

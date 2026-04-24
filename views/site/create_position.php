@@ -4,6 +4,7 @@ ob_start();
 ?>
     <h1>Новая должность</h1>
     <form action="<?= app()->route->getUrl('/positions/stored') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= app()->auth::generateCSRF() ?>">
         <label>Базовый оклад:</label>
         <input type="number" step="0.01" name="base_salary" required><br>
         <label>Надбавка:</label>

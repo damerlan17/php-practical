@@ -14,6 +14,8 @@ use Model\Allowance;
 use Model\PositionAllowance;
 use Model\Deduction;
 use Model\PayrollReport;
+use Src\Validator\Validator;
+
 
 
 class Site
@@ -67,34 +69,52 @@ class Site
 
     public function signup(Request $request): string
     {
-        if ($request->method === 'GET') {
-            return new View('site.signup');
-        }
+        if ($request->method === 'POST') {
+            $validator = new Validator($request->all(), [
+                'last_name'   => ['required'],
+                'first_name'  => ['required'],
+                'surname'     => ['required'],
+                'login'       => ['required', 'unique:users,login'],
+                'password'    => ['required'],
+                'inn'         => ['numeric'], // необязательное, но если заполнено – число
+                'snils'       => [], // можно добавить свою проверку формата
+                'payment_account' => [],
+                'tabel_name'  => [],
+            ], [
+                'required' => 'Поле :field обязательно',
+                'unique'   => 'Поле :field должно быть уникальным',
+                'numeric'  => 'Поле :field должно содержать число',
+            ]);
 
-        // Создаём документ с данными из формы
-        $doc = Document::create([
-            'inn' => $request->inn,
-            'snils' => $request->snils,
-            'payment_account' => $request->payment_account,
-            'tabel_name' => $request->tabel_name,
-        ]);
+            if ($validator->fails()) {
+                return (new View())->render('site.signup', [
+                    'message' => json_encode($validator->errors(), JSON_UNESCAPED_UNICODE),
+                    'old'     => $request->all()
+                ]);
+            }
 
-        // Создаём пользователя с привязкой к документу
-        $user = User::create([
-            'last_name' => $request->last_name,
-            'first_name' => $request->first_name,
-            'surname' => $request->surname,
-            'login' => $request->login,
-            'password' => $request->password,
-            'document_id' => $doc->document_id,
-            'role_id' => 2,
-        ]);
+            // Создание документа и пользователя (как в оригинале)
+            $doc = Document::create([
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name,
+            ]);
 
-        if ($user) {
+            User::create([
+                'last_name' => $request->last_name,
+                'first_name' => $request->first_name,
+                'surname' => $request->surname,
+                'login' => $request->login,
+                'password' => $request->password,
+                'document_id' => $doc->document_id,
+                'role_id' => 2, // обычная роль
+                'position_id' => null,
+            ]);
+
             app()->route->redirect('/login');
         }
-
-        return new View('site.signup', ['message' => 'Ошибка регистрации']);
+        return (new View())->render('site.signup');
     }
 
     public function login(Request $request): string
@@ -193,16 +213,34 @@ class Site
 
     public function storePosition(Request $request)
     {
-        $allowanceId = $request->allowance_id;
-        $posAllowance = null;
-        if ($allowanceId) {
-            $posAllowance = PositionAllowance::create(['allowance_id' => $allowanceId]);
+        $validator = new Validator($request->all(), [
+            'base_salary' => ['required', 'numeric', 'min:0'],
+            'allowance_id'=> ['numeric', 'exists:allowances,allowance_id'], // добавим валидатор exists
+        ], [
+            'required' => 'Поле :field обязательно',
+            'numeric'  => 'Поле :field должно быть числом',
+            'min'      => 'Значение поля :field не может быть меньше 0',
+            'exists'   => 'Выбранная надбавка не существует',
+        ]);
+
+        if ($validator->fails()) {
+            // Возврат на форму с ошибками
+            return (new View())->render('site.create_position', [
+                'errors' => $validator->errors(),
+                'old'    => $request->all(),
+                'allowances' => Allowance::all()
+            ]);
         }
-        $position = Position::create([
+
+        // Логика сохранения
+        $posAllowance = null;
+        if ($request->allowance_id) {
+            $posAllowance = PositionAllowance::create(['allowance_id' => $request->allowance_id]);
+        }
+        Position::create([
             'base_salary' => $request->base_salary,
             'id_allowance_position' => $posAllowance ? $posAllowance->id_allowance_position : null
         ]);
-        // Редирект или страница успеха
         app()->route->redirect('/positions');
     }
 
@@ -229,25 +267,26 @@ class Site
     {
         $data = $request->all(); // получаем все данные
 
-        // Валидация
-        $errors = [];
-        if (empty($data['login'])) {
-            $errors['login'] = 'Логин обязателен';
-        } elseif (User::where('login', $data['login'])->exists()) {
-            $errors['login'] = 'Такой логин уже используется';
-        }
-        if (empty($data['password'])) {
-            $errors['password'] = 'Пароль обязателен';
-        }
-        if (empty($data['first_name'])) {
-            $errors['first_name'] = 'Имя обязательно';
-        }
+        $validator = new Validator($request->all(), [
+            'login'       => ['required', 'unique:users,login'],
+            'password'    => ['required'],
+            'first_name'  => ['required'],
+            'last_name'   => ['required'],
+            'surname'     => ['required'],
+            'role_id'     => ['required', 'numeric'],
+            'position_id' => ['numeric'], // может быть пустым
+            'inn'         => ['numeric'],
+        ], [
+            'required' => 'Поле :field обязательно',
+            'unique'   => 'Такой логин уже используется',
+            'numeric'  => 'Поле :field должно быть числом',
+        ]);
 
-        if (!empty($errors)) {
+        if ($validator->fails()) {
             return (new View())->render('site.create_user', [
-                'errors'    => $errors,
-                'old'       => $data,
-                'roles'     => Role::all(),
+                'errors' => $validator->errors(),
+                'old'    => $request->all(),
+                'roles'  => Role::all(),
                 'positions' => Position::all()
             ]);
         }
@@ -268,7 +307,7 @@ class Site
             'first_name'  => $data['first_name'],
             'surname'     => $data['surname'] ?? null,
             'login'       => $data['login'],
-            'password'    => md5($data['password']),
+            'password'    => $data['password'],
             'document_id' => $doc->document_id,
             'role_id'     => $data['role_id'] ?? 2,
             'position_id' => $position_id,
@@ -388,12 +427,27 @@ class Site
 // Сохранение начисления
     public function storeAllowance(Request $request)
     {
-
-        Allowance::create([
-        'name_allowance' => $request->name_allowance,
-        'precent_allowance' => $request->precent_allowance,
+        $validator = new Validator($request->all(), [
+            'name_allowance'    => ['required'],
+            'precent_allowance' => ['required', 'numeric', 'min:0', 'max:100'],
+        ], [
+            'required' => 'Поле :field обязательно',
+            'numeric'  => 'Поле :field должно быть числом',
+            'min'      => 'Процент не может быть меньше 0',
+            'max'      => 'Процент не может быть больше 100',
         ]);
 
+        if ($validator->fails()) {
+            return (new View())->render('site.create_allowance', [
+                'errors' => $validator->errors(),
+                'old'    => $request->all()
+            ]);
+        }
+
+        Allowance::create([
+            'name_allowance' => $request->name_allowance,
+            'precent_allowance' => $request->precent_allowance,
+        ]);
         app()->route->redirect('/allowances');
     }
 
@@ -450,30 +504,26 @@ class Site
     // Сохранение
     public function storeDeduction(Request $request)
     {
-        // Валидация
-        $errors = [];
-        if (trim($request->deduction_name) === '') {
-            $errors['deduction_name'] = 'Название вычета обязательно';
-        }
-        if (!is_numeric($request->amount_deduction)) {
-            $errors['amount_deduction'] = 'Сумма вычета обязательна и должна быть числом';
-        }
+        $validator = new Validator($request->all(), [
+            'deduction_name'   => ['required'],
+            'amount_deduction' => ['required', 'numeric', 'min:0'],
+        ], [
+            'required' => 'Поле :field обязательно',
+            'numeric'  => 'Сумма должна быть числом',
+            'min'      => 'Сумма не может быть отрицательной',
+        ]);
 
-        // Если есть ошибки – возвращаем форму с ошибками и старыми данными
-        if (!empty($errors)) {
+        if ($validator->fails()) {
             return (new View())->render('site.create_deduction', [
-                'errors' => $errors,
-                'old' => (array)$request
+                'errors' => $validator->errors(),
+                'old'    => $request->all()
             ]);
         }
 
-        // Сохраняем
-        $deduction = new Deduction();
-        $deduction->deduction_name = $request->deduction_name;
-        $deduction->amount_deduction = $request->amount_deduction;
-        $deduction->save();
-
-        // Редирект на список
+        Deduction::create([
+            'deduction_name' => $request->deduction_name,
+            'amount_deduction' => $request->amount_deduction,
+        ]);
         app()->route->redirect('/deductions');
     }
 

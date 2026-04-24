@@ -7,6 +7,7 @@
     </div>
 <?php endif; ?>
 <form method="POST" action="<?= app()->route->getUrl('/users/update') ?>">
+    <input type="hidden" name="csrf_token" value="<?= app()->auth::generateCSRF() ?>">
     <input type="hidden" name="id" value="<?= $editUser->id ?>">
     <label>Логин: <input type="text" name="login" value="<?= htmlspecialchars($editUser->login) ?>"></label><br>
     <label>Пароль (оставьте пустым, если не менять): <input type="password" name="password"></label><br>
