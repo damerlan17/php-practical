@@ -17,7 +17,6 @@ use Model\PayrollReport;
 use Src\Validator\Validator;
 
 
-
 class Site
 {
     public function index(Request $request): string
@@ -71,25 +70,25 @@ class Site
     {
         if ($request->method === 'POST') {
             $validator = new Validator($request->all(), [
-                'last_name'   => ['required'],
-                'first_name'  => ['required'],
-                'surname'     => ['required'],
-                'login'       => ['required', 'unique:users,login'],
-                'password'    => ['required'],
-                'inn'         => ['numeric'], // необязательное, но если заполнено – число
-                'snils'       => [], // можно добавить свою проверку формата
+                'last_name' => ['required'],
+                'first_name' => ['required'],
+                'surname' => ['required'],
+                'login' => ['required', 'unique:users,login'],
+                'password' => ['required'],
+                'inn' => ['numeric'], // необязательное, но если заполнено – число
+                'snils' => [], // можно добавить свою проверку формата
                 'payment_account' => [],
-                'tabel_name'  => [],
+                'tabel_name' => [],
             ], [
                 'required' => 'Поле :field обязательно',
-                'unique'   => 'Поле :field должно быть уникальным',
-                'numeric'  => 'Поле :field должно содержать число',
+                'unique' => 'Поле :field должно быть уникальным',
+                'numeric' => 'Поле :field должно содержать число',
             ]);
 
             if ($validator->fails()) {
                 return (new View())->render('site.signup', [
                     'message' => json_encode($validator->errors(), JSON_UNESCAPED_UNICODE),
-                    'old'     => $request->all()
+                    'old' => $request->all()
                 ]);
             }
 
@@ -136,6 +135,7 @@ class Site
         Auth::logout();
         app()->route->redirect('/hello');
     }
+
     public function hello(): string
     {
         $user = app()->auth::user();
@@ -166,6 +166,7 @@ class Site
             'allowances' => $allowances
         ]);
     }
+
     public function updatePosition(Request $request)
     {
         $position = Position::find($request->id);
@@ -215,19 +216,19 @@ class Site
     {
         $validator = new Validator($request->all(), [
             'base_salary' => ['required', 'numeric', 'min:0'],
-            'allowance_id'=> ['numeric', 'exists:allowances,allowance_id'], // добавим валидатор exists
+            'allowance_id' => ['numeric', 'exists:allowances,allowance_id'], // добавим валидатор exists
         ], [
             'required' => 'Поле :field обязательно',
-            'numeric'  => 'Поле :field должно быть числом',
-            'min'      => 'Значение поля :field не может быть меньше 0',
-            'exists'   => 'Выбранная надбавка не существует',
+            'numeric' => 'Поле :field должно быть числом',
+            'min' => 'Значение поля :field не может быть меньше 0',
+            'exists' => 'Выбранная надбавка не существует',
         ]);
 
         if ($validator->fails()) {
             // Возврат на форму с ошибками
             return (new View())->render('site.create_position', [
                 'errors' => $validator->errors(),
-                'old'    => $request->all(),
+                'old' => $request->all(),
                 'allowances' => Allowance::all()
             ]);
         }
@@ -268,48 +269,48 @@ class Site
         $data = $request->all(); // получаем все данные
 
         $validator = new Validator($request->all(), [
-            'login'       => ['required', 'unique:users,login'],
-            'password'    => ['required'],
-            'first_name'  => ['required'],
-            'last_name'   => ['required'],
-            'surname'     => ['required'],
-            'role_id'     => ['required', 'numeric'],
+            'login' => ['required', 'unique:users,login'],
+            'password' => ['required'],
+            'first_name' => ['required'],
+            'last_name' => ['required'],
+            'surname' => ['required'],
+            'role_id' => ['required', 'numeric'],
             'position_id' => ['numeric'], // может быть пустым
-            'inn'         => ['numeric'],
+            'inn' => ['numeric'],
         ], [
             'required' => 'Поле :field обязательно',
-            'unique'   => 'Такой логин уже используется',
-            'numeric'  => 'Поле :field должно быть числом',
+            'unique' => 'Такой логин уже используется',
+            'numeric' => 'Поле :field должно быть числом',
         ]);
 
         if ($validator->fails()) {
             return (new View())->render('site.create_user', [
                 'errors' => $validator->errors(),
-                'old'    => $request->all(),
-                'roles'  => Role::all(),
+                'old' => $request->all(),
+                'roles' => Role::all(),
                 'positions' => Position::all()
             ]);
         }
 
         // Создаём документ
         $doc = Document::create([
-            'inn'            => $data['inn'] ?? null,
-            'snils'          => $data['snils'] ?? null,
-            'payment_account'=> $data['payment_account'] ?? null,
-            'tabel_name'     => $data['tabel_name'] ?? null,
+            'inn' => $data['inn'] ?? null,
+            'snils' => $data['snils'] ?? null,
+            'payment_account' => $data['payment_account'] ?? null,
+            'tabel_name' => $data['tabel_name'] ?? null,
         ]);
 
         $position_id = !empty($request->position_id) ? $request->position_id : null;
 
         // Создаём пользователя (хешируем пароль)
         $user = User::create([
-            'last_name'   => $data['last_name'] ?? null,
-            'first_name'  => $data['first_name'],
-            'surname'     => $data['surname'] ?? null,
-            'login'       => $data['login'],
-            'password'    => $data['password'],
+            'last_name' => $data['last_name'] ?? null,
+            'first_name' => $data['first_name'],
+            'surname' => $data['surname'] ?? null,
+            'login' => $data['login'],
+            'password' => $data['password'],
             'document_id' => $doc->document_id,
-            'role_id'     => $data['role_id'] ?? 2,
+            'role_id' => $data['role_id'] ?? 2,
             'position_id' => $position_id,
         ]);
 
@@ -319,16 +320,18 @@ class Site
 // Форма редактирования пользователя
     public function edit_users(Request $request)
     {
-        $user = User::with('document', 'role', 'position')->find($request->id);
+        $user = User::with('document', 'role', 'position', 'deductions')->find($request->id);
         if (!$user) {
             app()->route->redirect('/users');
         }
         $roles = Role::all();
         $positions = Position::all();
+        $deductions = Deduction::all(); // <-- добавить
         return (new View())->render('site.edit_users', [
-            'editUser'  => $user,
-            'roles'     => $roles,
-            'positions' => $positions
+            'editUser' => $user,
+            'roles' => $roles,
+            'positions' => $positions,
+            'deductions' => $deductions   // <-- передать
         ]);
     }
 
@@ -349,46 +352,50 @@ class Site
 
         if (!empty($errors)) {
             return (new View())->render('site.edit_users', [
-                'editUser'  => $user,
-                'errors'    => $errors,
-                'roles'     => Role::all(),
+                'editUser' => $user,
+                'errors' => $errors,
+                'roles' => Role::all(),
                 'positions' => Position::all()
             ]);
         }
 
         // Обновляем основные поля
-        $user->last_name  = $request->last_name;
+        $user->last_name = $request->last_name;
         $user->first_name = $request->first_name;
-        $user->surname    = $request->surname;
-        $user->login      = $request->login;
+        $user->surname = $request->surname;
+        $user->login = $request->login;
 
         if (!empty($request->password)) {
             $user->password = md5($request->password);
         }
 
-        $user->role_id    = $request->role_id;
+        $user->role_id = $request->role_id;
         $user->position_id = $request->position_id ?: null;
         $user->save();
 
         // Обновляем связанный документ
         if ($user->document) {
             $user->document->update([
-                'inn'            => $request->inn,
-                'snils'          => $request->snils,
-                'payment_account'=> $request->payment_account,
-                'tabel_name'     => $request->tabel_name,
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name,
             ]);
         } else {
             // Если документа нет – создаём
             $doc = Document::create([
-                'inn'            => $request->inn,
-                'snils'          => $request->snils,
-                'payment_account'=> $request->payment_account,
-                'tabel_name'     => $request->tabel_name,
+                'inn' => $request->inn,
+                'snils' => $request->snils,
+                'payment_account' => $request->payment_account,
+                'tabel_name' => $request->tabel_name,
             ]);
             $user->document_id = $doc->document_id;
             $user->save();
         }
+
+        // Синхронизация постоянных вычетов (many-to-many)
+        $deductionIds = $request->deduction_ids ?? [];
+        $user->deductions()->sync($deductionIds);
 
         app()->route->redirect('/users');
     }
@@ -428,19 +435,19 @@ class Site
     public function storeAllowance(Request $request)
     {
         $validator = new Validator($request->all(), [
-            'name_allowance'    => ['required'],
+            'name_allowance' => ['required'],
             'precent_allowance' => ['required', 'numeric', 'min:0', 'max:100'],
         ], [
             'required' => 'Поле :field обязательно',
-            'numeric'  => 'Поле :field должно быть числом',
-            'min'      => 'Процент не может быть меньше 0',
-            'max'      => 'Процент не может быть больше 100',
+            'numeric' => 'Поле :field должно быть числом',
+            'min' => 'Процент не может быть меньше 0',
+            'max' => 'Процент не может быть больше 100',
         ]);
 
         if ($validator->fails()) {
             return (new View())->render('site.create_allowance', [
                 'errors' => $validator->errors(),
-                'old'    => $request->all()
+                'old' => $request->all()
             ]);
         }
 
@@ -487,6 +494,7 @@ class Site
         }
         app()->route->redirect('/allowances');
     }
+
     // Список вычетов
     public function deductions()
     {
@@ -505,18 +513,18 @@ class Site
     public function storeDeduction(Request $request)
     {
         $validator = new Validator($request->all(), [
-            'deduction_name'   => ['required'],
+            'deduction_name' => ['required'],
             'amount_deduction' => ['required', 'numeric', 'min:0'],
         ], [
             'required' => 'Поле :field обязательно',
-            'numeric'  => 'Сумма должна быть числом',
-            'min'      => 'Сумма не может быть отрицательной',
+            'numeric' => 'Сумма должна быть числом',
+            'min' => 'Сумма не может быть отрицательной',
         ]);
 
         if ($validator->fails()) {
             return (new View())->render('site.create_deduction', [
                 'errors' => $validator->errors(),
-                'old'    => $request->all()
+                'old' => $request->all()
             ]);
         }
 
@@ -616,8 +624,9 @@ class Site
                         'total_accued' => $totalAccrued,
                         'total_deducted' => $totalDeductions,
                         'final_sum' => $finalSum,
-                    ]
+                    ],
                 );
+
             }
 
             app()->route->redirect('/payroll/reports');
@@ -645,6 +654,45 @@ class Site
         });
 
         return (new View())->render('site.payroll_reports', ['reports' => $reports]);
+    }
+
+    public function payslip(Request $request): string
+    {
+        $month = $request->get('month') ?? date('Y-m');
+        $currentUser = app()->auth::user();
+
+        if (!$currentUser) {
+            app()->route->redirect('/login');
+            return '';
+        }
+
+        $isAdmin = ($currentUser->role->role_name === 'admin');
+        $userId = $request->get('user_id');
+
+        if ($isAdmin && $userId) {
+            $user = User::with('deductions', 'position')->find($userId);
+        } else {
+            $user = $currentUser;
+        }
+
+        if (!$user) {
+            return (new View())->render('site.error', ['message' => 'Пользователь не найден']);
+        }
+
+        $report = PayrollReport::where('user_id', $user->id)
+            ->whereDate('date_report', $month . '-01')
+            ->first();
+
+        $users = $isAdmin ? User::all() : [];
+
+        return (new View())->render('site.payslip', [
+            'user'       => $user,
+            'month'      => $month,
+            'report'     => $report,
+            'deductions' => $user->deductions,
+            'users'      => $users,
+            'isAdmin'    => $isAdmin
+        ]);
     }
 
     public function clearReports()

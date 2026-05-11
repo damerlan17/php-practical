@@ -43,3 +43,9 @@ Route::add('GET', '/deductions/delete', [Site::class, 'deleteDeduction'])->middl
 Route::add(['GET', 'POST'], '/payroll/calculate', [Site::class, 'calculatePayroll'])->middleware('auth');
 Route::add('GET', '/payroll/reports', [Site::class, 'payrollReports'])->middleware('auth');
 Route::add('GET', '/payroll/clear', [Site::class, 'clearReports'])->middleware('auth', 'role:admin');
+
+// Просмотр своего расчётного листка для любого авторизованного
+Route::add('GET', '/payslip', [Site::class, 'payslip'])->middleware('auth');
+
+// Просмотр чужого листка (только админ)
+Route::add('GET', '/admin/payslip', [Site::class, 'payslip'])->middleware('auth', 'role:admin');

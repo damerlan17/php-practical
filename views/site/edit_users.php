@@ -42,4 +42,16 @@
     <label>Табельный номер: <input type="text" name="tabel_name" value="<?= htmlspecialchars($doc->tabel_name ?? '') ?>"></label><br>
     <button type="submit">Обновить</button>
     <a href="<?= app()->route->getUrl('/users') ?>">Отмена</a>
+    <h3>Постоянные вычеты</h3>
+    <label>Выберите вычеты, применяемые к сотруднику:</label><br>
+    <select name="deduction_ids[]" multiple size="5">
+        <?php foreach ($deductions as $deduction): ?>
+            <option value="<?= $deduction->deduction_id ?>"
+                    <?= (isset($editUser->deductions) && $editUser->deductions->contains('deduction_id', $deduction->deduction_id)) ? 'selected' : '' ?>
+            >
+                <?= htmlspecialchars($deduction->deduction_name) ?> (<?= number_format($deduction->amount_deduction, 2) ?> ₽)
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <p><small>Удерживаются каждый месяц при расчёте зарплаты</small></p>
 </form>

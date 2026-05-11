@@ -43,6 +43,7 @@
 
 <div class="profile-card">
     <h3>Действия</h3>
+    <a href="<?= app()->route->getUrl('/payslip?month=' . date('Y-m')) ?>">Мой расчётный листок за текущий месяц</a>
     <a href="<?= app()->route->getUrl('/edit') ?>" class="btn">Редактировать профиль</a>
     <a href="<?= app()->route->getUrl('/payroll/calculate') ?>" class="btn">Рассчитать зарплату</a>
     <a href="<?= app()->route->getUrl('/payroll/reports') ?>" class="btn">Мои отчёты</a>
