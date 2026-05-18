@@ -14,7 +14,7 @@ use Model\Allowance;
 use Model\PositionAllowance;
 use Model\Deduction;
 use Model\PayrollReport;
-use Src\Validator\Validator;
+use function Validation\validator;
 
 
 class Site
@@ -69,7 +69,7 @@ class Site
     public function signup(Request $request): string
     {
         if ($request->method === 'POST') {
-            $validator = new Validator($request->all(), [
+            $validator = validator($request->all(), [
                 'last_name' => ['required'],
                 'first_name' => ['required'],
                 'surname' => ['required'],
@@ -214,7 +214,7 @@ class Site
 
     public function storePosition(Request $request)
     {
-        $validator = new Validator($request->all(), [
+        $validator = validator($request->all(), [
             'base_salary' => ['required', 'numeric', 'min:0'],
             'allowance_id' => ['numeric', 'exists:allowances,allowance_id'], // добавим валидатор exists
         ], [
@@ -268,7 +268,7 @@ class Site
     {
         $data = $request->all(); // получаем все данные
 
-        $validator = new Validator($request->all(), [
+        $validator = validator($request->all(), [
             'login' => ['required', 'unique:users,login'],
             'password' => ['required'],
             'first_name' => ['required'],
@@ -434,7 +434,7 @@ class Site
 // Сохранение начисления
     public function storeAllowance(Request $request)
     {
-        $validator = new Validator($request->all(), [
+        $validator = validator($request->all(), [
             'name_allowance' => ['required'],
             'precent_allowance' => ['required', 'numeric', 'min:0', 'max:100'],
         ], [
@@ -512,7 +512,7 @@ class Site
     // Сохранение
     public function storeDeduction(Request $request)
     {
-        $validator = new Validator($request->all(), [
+        $validator = validator($request->all(), [
             'deduction_name' => ['required'],
             'amount_deduction' => ['required', 'numeric', 'min:0'],
         ], [

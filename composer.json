@@ -15,13 +15,22 @@
         "illuminate/database": "10.x-dev",
         "illuminate/events": "10.x-dev",
         "nikic/fast-route": "^2.0@dev",
-        "damerlan17/collect": "dev-main"
+        "damerlan17/collect": "dev-main",
+        "damerlan17/validation": "*"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../validation",
+            "options": {
+                "symlink": false
+            }
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Src\\": "core/Src/",
             "": "app/"
         }
-
     }
 }
